@@ -166,5 +166,41 @@ func mainUI(gtx layout.Context, th *fromage.Theme) {
 			return th.H3("Custom Card").Color(th.Colors.OnBackground()).Layout(gtx)
 		}),
 		layout.Rigid(customCard.Layout),
+		layout.Rigid(func(gtx C) D {
+			return layout.Spacer{Height: unit.Dp(10)}.Layout(gtx)
+		}),
+		layout.Rigid(func(gtx C) D {
+			return th.H3("Card with Inset").Color(th.Colors.OnBackground()).Layout(gtx)
+		}),
+		layout.Rigid(func(gtx C) D {
+			// Create a card with inset padding
+			insetCard := th.CardPrimary(func(gtx C) D {
+				// Create an inset with 1.0 padding (scaled by text size)
+				w := fromage.NewWindow(th)
+				inset := w.Inset(1.0, func(gtx C) D {
+					return th.Body1("This card content has inset padding around it. The inset creates space between the card border and the content.").Layout(gtx)
+				})
+				return inset.Fn(gtx)
+			})
+			return insetCard.Layout(gtx)
+		}),
+		layout.Rigid(func(gtx C) D {
+			return layout.Spacer{Height: unit.Dp(10)}.Layout(gtx)
+		}),
+		layout.Rigid(func(gtx C) D {
+			return th.H3("Card with Different Inset Values").Color(th.Colors.OnBackground()).Layout(gtx)
+		}),
+		layout.Rigid(func(gtx C) D {
+			// Create a card with different inset values
+			insetCard := th.CardSurface(func(gtx C) D {
+				// Create an inset with 0.5 padding (smaller padding)
+				w := fromage.NewWindow(th)
+				inset := w.Inset(0.5, func(gtx C) D {
+					return th.Body1("This card has smaller inset padding (0.5x text size).").Layout(gtx)
+				})
+				return inset.Fn(gtx)
+			})
+			return insetCard.Layout(gtx)
+		}),
 	)
 }

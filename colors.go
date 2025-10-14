@@ -343,8 +343,8 @@ func (t *Colors) initLightRoles() {
 	t.roles.Background = t.palette.Neutral50
 	t.roles.OnBackground = t.palette.Neutral900
 
-	// Surface roles
-	t.roles.Surface = t.palette.Neutral50
+	// Surface roles with subtle tint for contrast
+	t.roles.Surface = t.applySurfaceTint(t.palette.Neutral50)
 	t.roles.OnSurface = t.palette.Neutral900
 	t.roles.SurfaceVariant = t.palette.NeutralVariant100
 	t.roles.OnSurfaceVariant = t.palette.NeutralVariant800
@@ -396,8 +396,8 @@ func (t *Colors) initDarkRoles() {
 	t.roles.Background = t.palette.Neutral900
 	t.roles.OnBackground = t.palette.Neutral50
 
-	// Surface roles
-	t.roles.Surface = t.palette.Neutral900
+	// Surface roles with subtle tint for contrast
+	t.roles.Surface = t.applySurfaceTint(t.palette.Neutral900)
 	t.roles.OnSurface = t.palette.Neutral50
 	t.roles.SurfaceVariant = t.palette.NeutralVariant800
 	t.roles.OnSurfaceVariant = t.palette.NeutralVariant200
@@ -519,5 +519,18 @@ func darken(c color.NRGBA, factor float64) color.NRGBA {
 		G: uint8(float64(c.G) * (1 - factor)),
 		B: uint8(float64(c.B) * (1 - factor)),
 		A: c.A,
+	}
+}
+
+// applySurfaceTint applies a subtle tint to the surface color for contrast
+func (t *Colors) applySurfaceTint(baseColor color.NRGBA) color.NRGBA {
+	if t.ThemeMode() == ThemeModeLight {
+		// Light mode: make surface slightly darker (pale gray)
+		// Use Neutral100 (#F5F5F5) instead of Neutral50 (#FAFAFA)
+		return t.palette.Neutral100
+	} else {
+		// Dark mode: make surface slightly lighter (dark gray)
+		// Use Neutral800 (#424242) instead of Neutral900 (#212121)
+		return t.palette.Neutral800
 	}
 }
