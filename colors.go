@@ -1,0 +1,418 @@
+package fromage
+
+import (
+	"fmt"
+	"image/color"
+)
+
+// Material Design color roles
+type ColorRoles struct {
+	// Primary colors
+	Primary            color.NRGBA
+	OnPrimary          color.NRGBA
+	PrimaryContainer   color.NRGBA
+	OnPrimaryContainer color.NRGBA
+
+	// Secondary colors
+	Secondary            color.NRGBA
+	OnSecondary          color.NRGBA
+	SecondaryContainer   color.NRGBA
+	OnSecondaryContainer color.NRGBA
+
+	// Tertiary colors
+	Tertiary            color.NRGBA
+	OnTertiary          color.NRGBA
+	TertiaryContainer   color.NRGBA
+	OnTertiaryContainer color.NRGBA
+
+	// Error colors
+	Error            color.NRGBA
+	OnError          color.NRGBA
+	ErrorContainer   color.NRGBA
+	OnErrorContainer color.NRGBA
+
+	// Background colors
+	Background   color.NRGBA
+	OnBackground color.NRGBA
+
+	// Surface colors
+	Surface          color.NRGBA
+	OnSurface        color.NRGBA
+	SurfaceVariant   color.NRGBA
+	OnSurfaceVariant color.NRGBA
+
+	// Outline colors
+	Outline        color.NRGBA
+	OutlineVariant color.NRGBA
+
+	// Shadow and scrim
+	Shadow color.NRGBA
+	Scrim  color.NRGBA
+
+	// Inverse colors
+	InverseSurface   color.NRGBA
+	InverseOnSurface color.NRGBA
+	InversePrimary   color.NRGBA
+
+	// Surface tint
+	SurfaceTint color.NRGBA
+}
+
+// Material Design color palette
+type ColorPalette struct {
+	// Primary palette
+	Primary50  color.NRGBA
+	Primary100 color.NRGBA
+	Primary200 color.NRGBA
+	Primary300 color.NRGBA
+	Primary400 color.NRGBA
+	Primary500 color.NRGBA
+	Primary600 color.NRGBA
+	Primary700 color.NRGBA
+	Primary800 color.NRGBA
+	Primary900 color.NRGBA
+	Primary950 color.NRGBA
+
+	// Secondary palette
+	Secondary50  color.NRGBA
+	Secondary100 color.NRGBA
+	Secondary200 color.NRGBA
+	Secondary300 color.NRGBA
+	Secondary400 color.NRGBA
+	Secondary500 color.NRGBA
+	Secondary600 color.NRGBA
+	Secondary700 color.NRGBA
+	Secondary800 color.NRGBA
+	Secondary900 color.NRGBA
+	Secondary950 color.NRGBA
+
+	// Tertiary palette
+	Tertiary50  color.NRGBA
+	Tertiary100 color.NRGBA
+	Tertiary200 color.NRGBA
+	Tertiary300 color.NRGBA
+	Tertiary400 color.NRGBA
+	Tertiary500 color.NRGBA
+	Tertiary600 color.NRGBA
+	Tertiary700 color.NRGBA
+	Tertiary800 color.NRGBA
+	Tertiary900 color.NRGBA
+	Tertiary950 color.NRGBA
+
+	// Error palette
+	Error50  color.NRGBA
+	Error100 color.NRGBA
+	Error200 color.NRGBA
+	Error300 color.NRGBA
+	Error400 color.NRGBA
+	Error500 color.NRGBA
+	Error600 color.NRGBA
+	Error700 color.NRGBA
+	Error800 color.NRGBA
+	Error900 color.NRGBA
+	Error950 color.NRGBA
+
+	// Neutral palette
+	Neutral50  color.NRGBA
+	Neutral100 color.NRGBA
+	Neutral200 color.NRGBA
+	Neutral300 color.NRGBA
+	Neutral400 color.NRGBA
+	Neutral500 color.NRGBA
+	Neutral600 color.NRGBA
+	Neutral700 color.NRGBA
+	Neutral800 color.NRGBA
+	Neutral900 color.NRGBA
+	Neutral950 color.NRGBA
+
+	// Neutral variant palette
+	NeutralVariant50  color.NRGBA
+	NeutralVariant100 color.NRGBA
+	NeutralVariant200 color.NRGBA
+	NeutralVariant300 color.NRGBA
+	NeutralVariant400 color.NRGBA
+	NeutralVariant500 color.NRGBA
+	NeutralVariant600 color.NRGBA
+	NeutralVariant700 color.NRGBA
+	NeutralVariant800 color.NRGBA
+	NeutralVariant900 color.NRGBA
+	NeutralVariant950 color.NRGBA
+}
+
+type Colors struct {
+	roles   ColorRoles
+	palette ColorPalette
+}
+
+func NewColors() *Colors {
+	theme := &Colors{}
+
+	// Initialize with Material Design 3 default colors
+	theme.initDefaultPalette()
+	theme.initDefaultRoles()
+
+	return theme
+}
+
+func NewColorsWithCustomAccents(primary, secondary uint32) *Colors {
+	theme := &Colors{}
+
+	// Initialize with custom colors
+	theme.initCustomPalette(primary, secondary)
+	theme.initDefaultRoles()
+
+	return theme
+}
+
+// Initialize default Material Design 3 palette
+func (t *Colors) initDefaultPalette() {
+	// Primary - Blue
+	t.palette.Primary50 = hex("#E3F2FD")
+	t.palette.Primary100 = hex("#BBDEFB")
+	t.palette.Primary200 = hex("#90CAF9")
+	t.palette.Primary300 = hex("#64B5F6")
+	t.palette.Primary400 = hex("#42A5F5")
+	t.palette.Primary500 = hex("#2196F3")
+	t.palette.Primary600 = hex("#1E88E5")
+	t.palette.Primary700 = hex("#1976D2")
+	t.palette.Primary800 = hex("#1565C0")
+	t.palette.Primary900 = hex("#0D47A1")
+	t.palette.Primary950 = hex("#0A3D91")
+
+	// Secondary - Purple
+	t.palette.Secondary50 = hex("#F3E5F5")
+	t.palette.Secondary100 = hex("#E1BEE7")
+	t.palette.Secondary200 = hex("#CE93D8")
+	t.palette.Secondary300 = hex("#BA68C8")
+	t.palette.Secondary400 = hex("#AB47BC")
+	t.palette.Secondary500 = hex("#9C27B0")
+	t.palette.Secondary600 = hex("#8E24AA")
+	t.palette.Secondary700 = hex("#7B1FA2")
+	t.palette.Secondary800 = hex("#6A1B9A")
+	t.palette.Secondary900 = hex("#4A148C")
+	t.palette.Secondary950 = hex("#3F0F7A")
+
+	// Tertiary - Teal
+	t.palette.Tertiary50 = hex("#E0F2F1")
+	t.palette.Tertiary100 = hex("#B2DFDB")
+	t.palette.Tertiary200 = hex("#80CBC4")
+	t.palette.Tertiary300 = hex("#4DB6AC")
+	t.palette.Tertiary400 = hex("#26A69A")
+	t.palette.Tertiary500 = hex("#009688")
+	t.palette.Tertiary600 = hex("#00897B")
+	t.palette.Tertiary700 = hex("#00796B")
+	t.palette.Tertiary800 = hex("#00695C")
+	t.palette.Tertiary900 = hex("#004D40")
+	t.palette.Tertiary950 = hex("#003D33")
+
+	// Error - Red
+	t.palette.Error50 = hex("#FFEBEE")
+	t.palette.Error100 = hex("#FFCDD2")
+	t.palette.Error200 = hex("#EF9A9A")
+	t.palette.Error300 = hex("#E57373")
+	t.palette.Error400 = hex("#EF5350")
+	t.palette.Error500 = hex("#F44336")
+	t.palette.Error600 = hex("#E53935")
+	t.palette.Error700 = hex("#D32F2F")
+	t.palette.Error800 = hex("#C62828")
+	t.palette.Error900 = hex("#B71C1C")
+	t.palette.Error950 = hex("#A01515")
+
+	// Neutral - Gray
+	t.palette.Neutral50 = hex("#FAFAFA")
+	t.palette.Neutral100 = hex("#F5F5F5")
+	t.palette.Neutral200 = hex("#EEEEEE")
+	t.palette.Neutral300 = hex("#E0E0E0")
+	t.palette.Neutral400 = hex("#BDBDBD")
+	t.palette.Neutral500 = hex("#9E9E9E")
+	t.palette.Neutral600 = hex("#757575")
+	t.palette.Neutral700 = hex("#616161")
+	t.palette.Neutral800 = hex("#424242")
+	t.palette.Neutral900 = hex("#212121")
+	t.palette.Neutral950 = hex("#0F0F0F")
+
+	// Neutral Variant - Blue-gray
+	t.palette.NeutralVariant50 = hex("#F8FAFC")
+	t.palette.NeutralVariant100 = hex("#F1F5F9")
+	t.palette.NeutralVariant200 = hex("#E2E8F0")
+	t.palette.NeutralVariant300 = hex("#CBD5E1")
+	t.palette.NeutralVariant400 = hex("#94A3B8")
+	t.palette.NeutralVariant500 = hex("#64748B")
+	t.palette.NeutralVariant600 = hex("#475569")
+	t.palette.NeutralVariant700 = hex("#334155")
+	t.palette.NeutralVariant800 = hex("#1E293B")
+	t.palette.NeutralVariant900 = hex("#0F172A")
+	t.palette.NeutralVariant950 = hex("#020617")
+}
+
+// Initialize custom palette with provided colors
+func (t *Colors) initCustomPalette(primary, secondary uint32) {
+	// Use provided colors as base and generate palette
+	t.palette.Primary500 = rgb(primary)
+	t.palette.Secondary500 = rgb(secondary)
+
+	// Generate variations (simplified - in practice you'd use proper color theory)
+	t.palette.Primary50 = lighten(t.palette.Primary500, 0.9)
+	t.palette.Primary100 = lighten(t.palette.Primary500, 0.8)
+	t.palette.Primary200 = lighten(t.palette.Primary500, 0.6)
+	t.palette.Primary300 = lighten(t.palette.Primary500, 0.4)
+	t.palette.Primary400 = lighten(t.palette.Primary500, 0.2)
+	t.palette.Primary600 = darken(t.palette.Primary500, 0.1)
+	t.palette.Primary700 = darken(t.palette.Primary500, 0.2)
+	t.palette.Primary800 = darken(t.palette.Primary500, 0.3)
+	t.palette.Primary900 = darken(t.palette.Primary500, 0.4)
+	t.palette.Primary950 = darken(t.palette.Primary500, 0.5)
+
+	// Similar for secondary...
+	t.palette.Secondary50 = lighten(t.palette.Secondary500, 0.9)
+	t.palette.Secondary100 = lighten(t.palette.Secondary500, 0.8)
+	t.palette.Secondary200 = lighten(t.palette.Secondary500, 0.6)
+	t.palette.Secondary300 = lighten(t.palette.Secondary500, 0.4)
+	t.palette.Secondary400 = lighten(t.palette.Secondary500, 0.2)
+	t.palette.Secondary600 = darken(t.palette.Secondary500, 0.1)
+	t.palette.Secondary700 = darken(t.palette.Secondary500, 0.2)
+	t.palette.Secondary800 = darken(t.palette.Secondary500, 0.3)
+	t.palette.Secondary900 = darken(t.palette.Secondary500, 0.4)
+	t.palette.Secondary950 = darken(t.palette.Secondary500, 0.5)
+
+	// Initialize other palettes with defaults
+	t.initDefaultPalette()
+}
+
+// Initialize Material Design 3 color roles
+func (t *Colors) initDefaultRoles() {
+	// Primary roles
+	t.roles.Primary = t.palette.Primary500
+	t.roles.OnPrimary = t.palette.Neutral50
+	t.roles.PrimaryContainer = t.palette.Primary100
+	t.roles.OnPrimaryContainer = t.palette.Primary900
+
+	// Secondary roles
+	t.roles.Secondary = t.palette.Secondary500
+	t.roles.OnSecondary = t.palette.Neutral50
+	t.roles.SecondaryContainer = t.palette.Secondary100
+	t.roles.OnSecondaryContainer = t.palette.Secondary900
+
+	// Tertiary roles
+	t.roles.Tertiary = t.palette.Tertiary500
+	t.roles.OnTertiary = t.palette.Neutral50
+	t.roles.TertiaryContainer = t.palette.Tertiary100
+	t.roles.OnTertiaryContainer = t.palette.Tertiary900
+
+	// Error roles
+	t.roles.Error = t.palette.Error500
+	t.roles.OnError = t.palette.Neutral50
+	t.roles.ErrorContainer = t.palette.Error100
+	t.roles.OnErrorContainer = t.palette.Error900
+
+	// Background roles
+	t.roles.Background = t.palette.Neutral50
+	t.roles.OnBackground = t.palette.Neutral900
+
+	// Surface roles
+	t.roles.Surface = t.palette.Neutral50
+	t.roles.OnSurface = t.palette.Neutral900
+	t.roles.SurfaceVariant = t.palette.NeutralVariant100
+	t.roles.OnSurfaceVariant = t.palette.NeutralVariant800
+
+	// Outline roles
+	t.roles.Outline = t.palette.NeutralVariant500
+	t.roles.OutlineVariant = t.palette.NeutralVariant300
+
+	// Shadow and scrim
+	t.roles.Shadow = hex("#000000")
+	t.roles.Scrim = hex("#000000")
+
+	// Inverse roles
+	t.roles.InverseSurface = t.palette.Neutral800
+	t.roles.InverseOnSurface = t.palette.Neutral100
+	t.roles.InversePrimary = t.palette.Primary200
+
+	// Surface tint
+	t.roles.SurfaceTint = t.palette.Primary500
+}
+
+// Getters for color roles
+func (t *Colors) Primary() color.NRGBA            { return t.roles.Primary }
+func (t *Colors) OnPrimary() color.NRGBA          { return t.roles.OnPrimary }
+func (t *Colors) PrimaryContainer() color.NRGBA   { return t.roles.PrimaryContainer }
+func (t *Colors) OnPrimaryContainer() color.NRGBA { return t.roles.OnPrimaryContainer }
+
+func (t *Colors) Secondary() color.NRGBA            { return t.roles.Secondary }
+func (t *Colors) OnSecondary() color.NRGBA          { return t.roles.OnSecondary }
+func (t *Colors) SecondaryContainer() color.NRGBA   { return t.roles.SecondaryContainer }
+func (t *Colors) OnSecondaryContainer() color.NRGBA { return t.roles.OnSecondaryContainer }
+
+func (t *Colors) Tertiary() color.NRGBA            { return t.roles.Tertiary }
+func (t *Colors) OnTertiary() color.NRGBA          { return t.roles.OnTertiary }
+func (t *Colors) TertiaryContainer() color.NRGBA   { return t.roles.TertiaryContainer }
+func (t *Colors) OnTertiaryContainer() color.NRGBA { return t.roles.OnTertiaryContainer }
+
+func (t *Colors) Error() color.NRGBA            { return t.roles.Error }
+func (t *Colors) OnError() color.NRGBA          { return t.roles.OnError }
+func (t *Colors) ErrorContainer() color.NRGBA   { return t.roles.ErrorContainer }
+func (t *Colors) OnErrorContainer() color.NRGBA { return t.roles.OnErrorContainer }
+
+func (t *Colors) Background() color.NRGBA   { return t.roles.Background }
+func (t *Colors) OnBackground() color.NRGBA { return t.roles.OnBackground }
+
+func (t *Colors) Surface() color.NRGBA          { return t.roles.Surface }
+func (t *Colors) OnSurface() color.NRGBA        { return t.roles.OnSurface }
+func (t *Colors) SurfaceVariant() color.NRGBA   { return t.roles.SurfaceVariant }
+func (t *Colors) OnSurfaceVariant() color.NRGBA { return t.roles.OnSurfaceVariant }
+
+func (t *Colors) Outline() color.NRGBA        { return t.roles.Outline }
+func (t *Colors) OutlineVariant() color.NRGBA { return t.roles.OutlineVariant }
+
+func (t *Colors) Shadow() color.NRGBA { return t.roles.Shadow }
+func (t *Colors) Scrim() color.NRGBA  { return t.roles.Scrim }
+
+func (t *Colors) InverseSurface() color.NRGBA   { return t.roles.InverseSurface }
+func (t *Colors) InverseOnSurface() color.NRGBA { return t.roles.InverseOnSurface }
+func (t *Colors) InversePrimary() color.NRGBA   { return t.roles.InversePrimary }
+
+func (t *Colors) SurfaceTint() color.NRGBA { return t.roles.SurfaceTint }
+
+// Getters for palette colors
+func (t *Colors) Palette() ColorPalette { return t.palette }
+
+// Utility functions
+func hex(s string) color.NRGBA {
+	if len(s) != 7 || s[0] != '#' {
+		return color.NRGBA{}
+	}
+
+	var r, g, b uint8
+	if _, err := fmt.Sscanf(s[1:], "%02x%02x%02x", &r, &g, &b); err != nil {
+		return color.NRGBA{}
+	}
+
+	return color.NRGBA{R: r, G: g, B: b, A: 255}
+}
+
+func rgb(c uint32) color.NRGBA {
+	return argb(0xff000000 | c)
+}
+
+func argb(c uint32) color.NRGBA {
+	return color.NRGBA{A: uint8(c >> 24), R: uint8(c >> 16), G: uint8(c >> 8), B: uint8(c)}
+}
+
+// Simple color manipulation functions
+func lighten(c color.NRGBA, factor float64) color.NRGBA {
+	return color.NRGBA{
+		R: uint8(float64(c.R) + (255-float64(c.R))*factor),
+		G: uint8(float64(c.G) + (255-float64(c.G))*factor),
+		B: uint8(float64(c.B) + (255-float64(c.B))*factor),
+		A: c.A,
+	}
+}
+
+func darken(c color.NRGBA, factor float64) color.NRGBA {
+	return color.NRGBA{
+		R: uint8(float64(c.R) * (1 - factor)),
+		G: uint8(float64(c.G) * (1 - factor)),
+		B: uint8(float64(c.B) * (1 - factor)),
+		A: c.A,
+	}
+}
