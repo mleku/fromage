@@ -9,11 +9,12 @@ import (
 )
 
 type Theme struct {
-	ctx      context.Context
-	Colors   *Colors
-	Shaper   *text.Shaper
-	TextSize unit.Dp
-	Pool     *Pool
+	ctx       context.Context
+	Colors    *Colors
+	Shaper    *text.Shaper
+	TextSize  unit.Dp
+	Pool      *Pool
+	iconCache IconCache
 }
 
 // Pool manages widget instances to avoid creating new ones on every frame
@@ -39,11 +40,12 @@ func NewThemeWithMode(
 	mode ThemeMode,
 ) *Theme {
 	return &Theme{
-		ctx:      ctx,
-		Colors:   NewColorsWithMode(mode),
-		Shaper:   shaper,
-		TextSize: textSize,
-		Pool:     &Pool{},
+		ctx:       ctx,
+		Colors:    NewColorsWithMode(mode),
+		Shaper:    shaper,
+		TextSize:  textSize,
+		Pool:      &Pool{},
+		iconCache: make(IconCache),
 	}
 }
 

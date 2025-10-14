@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 
+	"gio.tools/icons"
 	"gioui.org/app"
 	"gioui.org/font/gofont"
 	"gioui.org/layout"
@@ -20,6 +21,13 @@ type (
 	C = fromage.C
 	D = fromage.D
 	W = fromage.W
+)
+
+// Icon instances using gio.tools/icons
+var (
+	starIcon     = icons.ActionGrade
+	heartIcon    = icons.ActionFavorite
+	settingsIcon = icons.ActionSettings
 )
 
 func main() {
@@ -82,12 +90,21 @@ func mainUI(gtx layout.Context, th *fromage.Theme) {
 			).CornerRadius(4).Layout(g)
 		}).
 		Rigid(func(g C) D {
-			// Main interactive button with theme toggle
+			// Main interactive button with theme toggle and icon
 			button := th.PrimaryButton(
 				func(g C) D {
-					return th.Body1("Toggle Theme").
-						Color(th.Colors.OnPrimary()).
-						Alignment(text.Middle).
+					return th.HFlex().
+						SpaceEvenly().
+						AlignMiddle().
+						Rigid(func(g C) D {
+							return settingsIcon.Layout(g, th.Colors.Primary())
+						}).
+						Rigid(func(g C) D {
+							return th.Body1("Toggle Theme").
+								Color(th.Colors.OnPrimary()).
+								Alignment(text.Middle).
+								Layout(g)
+						}).
 						Layout(g)
 				},
 			)
@@ -105,12 +122,21 @@ func mainUI(gtx layout.Context, th *fromage.Theme) {
 			return th.HFlex().
 				SpaceEvenly().
 				Rigid(func(g C) D {
-					// Secondary button
+					// Secondary button with star icon
 					btn := th.SecondaryButton(
 						func(g C) D {
-							return th.Body2("Secondary").
-								Color(th.Colors.OnSecondary()).
-								Alignment(text.Middle).
+							return th.HFlex().
+								SpaceEvenly().
+								AlignMiddle().
+								Rigid(func(g C) D {
+									return starIcon.Layout(g, th.Colors.OnSecondary())
+								}).
+								Rigid(func(g C) D {
+									return th.Body2("Secondary").
+										Color(th.Colors.OnSecondary()).
+										Alignment(text.Middle).
+										Layout(g)
+								}).
 								Layout(g)
 						},
 					)
@@ -120,12 +146,21 @@ func mainUI(gtx layout.Context, th *fromage.Theme) {
 					return btn.Layout(g)
 				}).
 				Rigid(func(g C) D {
-					// Surface button
+					// Surface button with heart icon
 					btn := th.SurfaceButton(
 						func(g C) D {
-							return th.Body2("Surface").
-								Color(th.Colors.OnSurface()).
-								Alignment(text.Middle).
+							return th.HFlex().
+								SpaceEvenly().
+								AlignMiddle().
+								Rigid(func(g C) D {
+									return heartIcon.Layout(g, th.Colors.OnSurface())
+								}).
+								Rigid(func(g C) D {
+									return th.Body2("Surface").
+										Color(th.Colors.OnSurface()).
+										Alignment(text.Middle).
+										Layout(g)
+								}).
 								Layout(g)
 						},
 					)
@@ -135,12 +170,21 @@ func mainUI(gtx layout.Context, th *fromage.Theme) {
 					return btn.Layout(g)
 				}).
 				Rigid(func(g C) D {
-					// Error button
+					// Error button with warning icon
 					btn := th.ErrorButton(
 						func(g C) D {
-							return th.Body2("Error").
-								Color(th.Colors.OnError()).
-								Alignment(text.Middle).
+							return th.HFlex().
+								SpaceEvenly().
+								AlignMiddle().
+								Rigid(func(g C) D {
+									return settingsIcon.Layout(g, th.Colors.OnError())
+								}).
+								Rigid(func(g C) D {
+									return th.Body2("Error").
+										Color(th.Colors.OnError()).
+										Alignment(text.Middle).
+										Layout(g)
+								}).
 								Layout(g)
 						},
 					)
@@ -186,42 +230,115 @@ func mainUI(gtx layout.Context, th *fromage.Theme) {
 					return btn.Layout(g)
 				}).
 				Rigid(func(g C) D {
-					// Icon button (using text as placeholder)
-					btn := th.IconButton("★").
-						Background(th.Colors.Tertiary())
+					// Icon-only button using the icon widget
+					btn := th.NewButtonLayout().
+						Background(th.Colors.Tertiary()).
+						CornerRadius(0.5). // 50% of text size
+						Widget(func(g C) D {
+							return starIcon.Layout(g, th.Colors.OnTertiary())
+						})
 					if btn.Clicked(g) {
-						log.I.F("icon button clicked")
+						log.I.F("icon-only button clicked")
 					}
 					return btn.Layout(g)
 				}).
 				Layout(g)
 		}).
 		Rigid(func(g C) D {
-			// Text buttons showcase
+			// Icon size showcase
 			return th.HFlex().
 				SpaceEvenly().
 				Rigid(func(g C) D {
-					// Text button
-					btn := th.TextButton("Text Button")
+					// Small icon button
+					btn := th.NewButtonLayout().
+						Background(th.Colors.Primary()).
+						CornerRadius(0.25). // 25% of text size
+						Widget(func(g C) D {
+							return starIcon.Layout(g, th.Colors.OnPrimary())
+						})
 					if btn.Clicked(g) {
-						log.I.F("text button clicked")
+						log.I.F("small icon button clicked")
 					}
 					return btn.Layout(g)
 				}).
 				Rigid(func(g C) D {
-					// Custom styled button
+					// Medium icon button
+					btn := th.NewButtonLayout().
+						Background(th.Colors.Secondary()).
+						CornerRadius(0.25). // 25% of text size
+						Widget(func(g C) D {
+							return heartIcon.Layout(g, th.Colors.OnSecondary())
+						})
+					if btn.Clicked(g) {
+						log.I.F("medium icon button clicked")
+					}
+					return btn.Layout(g)
+				}).
+				Rigid(func(g C) D {
+					// Large icon button
+					btn := th.NewButtonLayout().
+						Background(th.Colors.Tertiary()).
+						CornerRadius(0.25). // 25% of text size
+						Widget(func(g C) D {
+							return settingsIcon.Layout(g, th.Colors.OnTertiary())
+						})
+					if btn.Clicked(g) {
+						log.I.F("large icon button clicked")
+					}
+					return btn.Layout(g)
+				}).
+				Layout(g)
+		}).
+		Rigid(func(g C) D {
+			// Text buttons with icons showcase
+			return th.HFlex().
+				SpaceEvenly().
+				Rigid(func(g C) D {
+					// Text button with icon
+					btn := th.NewButtonLayout().
+						Widget(func(g C) D {
+							return th.HFlex().
+								SpaceEvenly().
+								AlignMiddle().
+								Rigid(func(g C) D {
+									return starIcon.Layout(g, th.Colors.OnBackground())
+								}).
+								Rigid(func(g C) D {
+									return th.Body2("Text Button").
+										Color(th.Colors.OnBackground()).
+										Alignment(text.Middle).
+										Layout(g)
+								}).
+								Layout(g)
+						})
+					if btn.Clicked(g) {
+						log.I.F("text button with icon clicked")
+					}
+					return btn.Layout(g)
+				}).
+				Rigid(func(g C) D {
+					// Custom styled button with icon
 					btn := th.NewButtonLayout().
 						Background(th.Colors.Tertiary()).
 						CornerRadius(0.3). // 30% of text size
 						Corners(fromage.CornerNW | fromage.CornerNE).
 						Widget(func(g C) D {
-							return th.Caption("Custom Style").
-								Color(th.Colors.OnTertiary()).
-								Alignment(text.Middle).
+							return th.HFlex().
+								SpaceEvenly().
+								AlignMiddle().
+								Rigid(func(g C) D {
+									return heartIcon.Layout(g, th.Colors.OnTertiary())
+								}).
+								Rigid(func(g C) D {
+									return th.Caption("Custom Style").
+										Color(th.Colors.OnTertiary()).
+										Alignment(text.Middle).
+										Layout(g)
+								}).
 								Layout(g)
 						})
 					if btn.Clicked(g) {
-						log.I.F("custom button clicked")
+						log.I.F("custom button with icon clicked")
 					}
 					return btn.Layout(g)
 				}).

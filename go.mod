@@ -8,6 +8,7 @@ require (
 )
 
 require (
+	gio.tools/icons v0.0.0-20240708021058-44790e75e701 // indirect
 	gioui.org/shader v1.0.8 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-text/typesetting v0.3.0 // indirect
