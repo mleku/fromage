@@ -5,6 +5,7 @@ import (
 
 	"gioui.org/text"
 	"gioui.org/unit"
+	"gioui.org/widget"
 )
 
 type Theme struct {
@@ -12,6 +13,13 @@ type Theme struct {
 	Colors   *Colors
 	Shaper   *text.Shaper
 	TextSize unit.Dp
+	Pool     *Pool
+}
+
+// Pool manages widget instances to avoid creating new ones on every frame
+type Pool struct {
+	clickables      []*widget.Clickable
+	clickablesInUse int
 }
 
 func NewTheme(
@@ -35,6 +43,7 @@ func NewThemeWithMode(
 		Colors:   NewColorsWithMode(mode),
 		Shaper:   shaper,
 		TextSize: textSize,
+		Pool:     &Pool{},
 	}
 }
 
@@ -57,4 +66,40 @@ func (t *Theme) IsDark() bool {
 
 func (t *Theme) IsLight() bool {
 	return t.Colors.ThemeMode() == ThemeModeLight
+}
+
+// Pool methods
+
+// GetClickable returns a pooled clickable widget
+func (p *Pool) GetClickable() *widget.Clickable {
+	if len(p.clickables) <= p.clickablesInUse {
+		// Allocate more clickables if needed
+		for i := 0; i < 10; i++ {
+			p.clickables = append(p.clickables, &widget.Clickable{})
+		}
+	}
+	clickable := p.clickables[p.clickablesInUse]
+	p.clickablesInUse++
+	return clickable
+}
+
+// FreeClickable returns a clickable to the pool
+func (p *Pool) FreeClickable(c *widget.Clickable) {
+	for i := 0; i < p.clickablesInUse; i++ {
+		if p.clickables[i] == c {
+			if i != p.clickablesInUse-1 {
+				// Move the item to the end
+				tmp := p.clickables[i]
+				p.clickables = append(p.clickables[:i], p.clickables[i+1:]...)
+				p.clickables = append(p.clickables, tmp)
+				p.clickablesInUse--
+				break
+			}
+		}
+	}
+}
+
+// Reset resets the pool usage counters
+func (p *Pool) Reset() {
+	p.clickablesInUse = 0
 }
