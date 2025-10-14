@@ -101,18 +101,6 @@ func (p *Pool) FreeClickable(c *widget.Clickable) {
 	}
 }
 
-// Modal methods
-
-// NewModal creates a new modal with the given content
-func (t *Theme) NewModal(content W, onClose func()) *Modal {
-	return &Modal{
-		theme:          t,
-		content:        content,
-		scrimClickable: t.Pool.GetClickable(),
-		onClose:        onClose,
-		blocking:       true,
-	}
-}
 
 // Reset resets the pool usage counters
 func (p *Pool) Reset() {
