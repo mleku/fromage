@@ -50,4 +50,61 @@ func loop(w *app.Window, th *fromage.Theme) func() {
 func mainUI(gtx layout.Context, th *fromage.Theme) {
 	// Fill background with theme background color
 	paint.Fill(gtx.Ops, th.Colors.Background())
+
+	// Layout the UI with different label styles
+	layout.Flex{
+		Axis:    layout.Vertical,
+		Spacing: layout.SpaceEvenly,
+	}.Layout(gtx,
+		// Title
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return th.H1("Theme Demo").Alignment(text.Middle).Layout(gtx)
+			})
+		}),
+
+		// Theme info
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				themeText := "Current Theme: Light"
+				if th.IsDark() {
+					themeText = "Current Theme: Dark"
+				}
+				return th.Body1(themeText).Alignment(text.Middle).Layout(gtx)
+			})
+		}),
+
+		// Sample text with different styles
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{
+				Axis:    layout.Vertical,
+				Spacing: layout.SpaceEnd,
+			}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return th.H2("Heading 2").Layout(gtx)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return th.Body1("This is body text with fluent API").Layout(gtx)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return th.Body2("This is smaller body text").Layout(gtx)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return th.Caption("This is caption text").Layout(gtx)
+				}),
+			)
+		}),
+
+		// Custom styled label
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return th.NewLabel().
+					Text("Custom styled text").
+					Color(th.Colors.Primary()).
+					TextSize(unit.Sp(18)).
+					Alignment(text.Middle).
+					Layout(gtx)
+			})
+		}),
+	)
 }
