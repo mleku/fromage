@@ -37,6 +37,8 @@ type AppState struct {
 	switchWidget  *fromage.Bool
 	colorSelector *fromage.ColorSelector
 	checkbox      *fromage.Checkbox
+	modalStack    *fromage.ModalStack
+	slideInCheck  *fromage.Checkbox
 }
 
 var appState *AppState
@@ -62,6 +64,10 @@ func main() {
 		}),
 		checkbox: th.NewCheckbox(false).SetOnChange(func(b bool) {
 			log.I.F("[HOOK] Checkbox toggled to: %v", b)
+		}),
+		modalStack: th.NewModalStack().ScrimDarkness(0.7), // 70% opacity scrim
+		slideInCheck: th.NewCheckbox(false).SetOnChange(func(b bool) {
+			log.I.F("[HOOK] Slide-in checkbox toggled to: %v", b)
 		}),
 	}
 
@@ -95,6 +101,65 @@ func loop(w *app.Window, th *fromage.Theme) func() {
 	}
 }
 
+// showModal creates and displays a modal with generated text content
+func showModal(th *fromage.Theme) {
+	// Generate some sample text content
+	sampleText := `This is a modal dialog with customizable scrim darkness.
+
+You can put any widgets you want in here - buttons, text, images, forms, etc.
+
+The scrim behind this modal is set to 70% opacity, making the background content visible but dimmed.
+
+Click anywhere outside this content area to close the modal.
+
+This modal demonstrates:
+• Customizable scrim darkness
+• Click-outside-to-close functionality  
+• Centered content layout
+• Full-screen overlay`
+
+	// Create the modal content
+	modalContent := func(g C) D {
+		return th.NewCard(
+			func(g C) D {
+				return th.VFlex().
+					SpaceEvenly().
+					Rigid(func(g C) D {
+						return th.H3("Modal Dialog").
+							Color(th.Colors.OnSurface()).
+							Alignment(text.Middle).
+							Layout(g)
+					}).
+					Rigid(func(g C) D {
+						return th.Body1(sampleText).
+							Color(th.Colors.OnSurface()).
+							Alignment(text.Start).
+							Layout(g)
+					}).
+					Rigid(func(g C) D {
+						// Close button
+						btn := th.SecondaryButton(func(g C) D {
+							return th.Body2("Close").
+								Color(th.Colors.OnSecondary()).
+								Alignment(text.Middle).
+								Layout(g)
+						})
+						if btn.Clicked(g) {
+							appState.modalStack.Pop()
+						}
+						return btn.Layout(g)
+					}).
+					Layout(g)
+			},
+		).CornerRadius(8).Padding(unit.Dp(16)).Layout(g)
+	}
+
+	// Push the modal to the stack with slide-in option
+	slideIn := appState.slideInCheck.GetValue()
+	appState.modalStack.PushWithSlide(modalContent, func() {
+		appState.modalStack.Pop()
+	}, slideIn)
+}
 
 func mainUI(gtx layout.Context, th *fromage.Theme) {
 	// Fill background with theme background color
@@ -438,6 +503,41 @@ func mainUI(gtx layout.Context, th *fromage.Theme) {
 				}).
 				Layout(g)
 		}).
+		Rigid(func(g C) D {
+			// Modal showcase
+			return th.VFlex().
+				SpaceEvenly().
+				Rigid(func(g C) D {
+					return th.Caption("Modal Example").
+						Color(th.Colors.OnBackground()).
+						Alignment(text.Middle).
+						Layout(g)
+				}).
+				Rigid(func(g C) D {
+					// Button to show modal
+					btn := th.PrimaryButton(func(g C) D {
+						return th.Body2("Show Modal").
+							Color(th.Colors.OnPrimary()).
+							Alignment(text.Middle).
+							Layout(g)
+					})
+					if btn.Clicked(g) {
+						log.I.F("Show modal button clicked")
+						showModal(th)
+					}
+					return btn.Layout(g)
+				}).
+				Rigid(func(g C) D {
+					// Slide-in checkbox
+					slideInCheckbox := appState.slideInCheck.Label("Slide in")
+					return slideInCheckbox.Layout(g)
+				}).
+				Layout(g)
+		}).
 		Layout(gtx)
 
+	// Layout the modal stack on top of everything
+	if !appState.modalStack.IsEmpty() {
+		appState.modalStack.Layout(gtx)
+	}
 }

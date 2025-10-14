@@ -101,7 +101,6 @@ func (p *Pool) FreeClickable(c *widget.Clickable) {
 	}
 }
 
-
 // Reset resets the pool usage counters
 func (p *Pool) Reset() {
 	p.clickablesInUse = 0
