@@ -5,6 +5,15 @@ import (
 	"image/color"
 )
 
+// ThemeMode represents the theme variant
+type ThemeMode int
+
+const (
+	ThemeModeLight ThemeMode = iota
+	ThemeModeDark
+	ThemeModeAuto // Follows system preference
+)
+
 // Material Design color roles
 type ColorRoles struct {
 	// Primary colors
@@ -140,26 +149,39 @@ type ColorPalette struct {
 }
 
 type Colors struct {
-	roles   ColorRoles
-	palette ColorPalette
+	roles     ColorRoles
+	palette   ColorPalette
+	themeMode ThemeMode
 }
 
 func NewColors() *Colors {
-	theme := &Colors{}
+	return NewColorsWithMode(ThemeModeLight)
+}
+
+func NewColorsWithMode(mode ThemeMode) *Colors {
+	theme := &Colors{
+		themeMode: mode,
+	}
 
 	// Initialize with Material Design 3 default colors
 	theme.initDefaultPalette()
-	theme.initDefaultRoles()
+	theme.initRoles()
 
 	return theme
 }
 
 func NewColorsWithCustomAccents(primary, secondary uint32) *Colors {
-	theme := &Colors{}
+	return NewColorsWithCustomAccentsAndMode(primary, secondary, ThemeModeLight)
+}
+
+func NewColorsWithCustomAccentsAndMode(primary, secondary uint32, mode ThemeMode) *Colors {
+	theme := &Colors{
+		themeMode: mode,
+	}
 
 	// Initialize with custom colors
 	theme.initCustomPalette(primary, secondary)
-	theme.initDefaultRoles()
+	theme.initRoles()
 
 	return theme
 }
@@ -279,8 +301,20 @@ func (t *Colors) initCustomPalette(primary, secondary uint32) {
 	t.initDefaultPalette()
 }
 
-// Initialize Material Design 3 color roles
-func (t *Colors) initDefaultRoles() {
+// Initialize Material Design 3 color roles based on theme mode
+func (t *Colors) initRoles() {
+	switch t.themeMode {
+	case ThemeModeDark:
+		t.initDarkRoles()
+	case ThemeModeLight:
+		fallthrough
+	default:
+		t.initLightRoles()
+	}
+}
+
+// Initialize light theme color roles
+func (t *Colors) initLightRoles() {
 	// Primary roles
 	t.roles.Primary = t.palette.Primary500
 	t.roles.OnPrimary = t.palette.Neutral50
@@ -332,6 +366,59 @@ func (t *Colors) initDefaultRoles() {
 	t.roles.SurfaceTint = t.palette.Primary500
 }
 
+// Initialize dark theme color roles
+func (t *Colors) initDarkRoles() {
+	// Primary roles
+	t.roles.Primary = t.palette.Primary200
+	t.roles.OnPrimary = t.palette.Primary900
+	t.roles.PrimaryContainer = t.palette.Primary800
+	t.roles.OnPrimaryContainer = t.palette.Primary100
+
+	// Secondary roles
+	t.roles.Secondary = t.palette.Secondary200
+	t.roles.OnSecondary = t.palette.Secondary900
+	t.roles.SecondaryContainer = t.palette.Secondary800
+	t.roles.OnSecondaryContainer = t.palette.Secondary100
+
+	// Tertiary roles
+	t.roles.Tertiary = t.palette.Tertiary200
+	t.roles.OnTertiary = t.palette.Tertiary900
+	t.roles.TertiaryContainer = t.palette.Tertiary800
+	t.roles.OnTertiaryContainer = t.palette.Tertiary100
+
+	// Error roles
+	t.roles.Error = t.palette.Error200
+	t.roles.OnError = t.palette.Error900
+	t.roles.ErrorContainer = t.palette.Error800
+	t.roles.OnErrorContainer = t.palette.Error100
+
+	// Background roles
+	t.roles.Background = t.palette.Neutral900
+	t.roles.OnBackground = t.palette.Neutral50
+
+	// Surface roles
+	t.roles.Surface = t.palette.Neutral900
+	t.roles.OnSurface = t.palette.Neutral50
+	t.roles.SurfaceVariant = t.palette.NeutralVariant800
+	t.roles.OnSurfaceVariant = t.palette.NeutralVariant200
+
+	// Outline roles
+	t.roles.Outline = t.palette.NeutralVariant400
+	t.roles.OutlineVariant = t.palette.NeutralVariant700
+
+	// Shadow and scrim
+	t.roles.Shadow = hex("#000000")
+	t.roles.Scrim = hex("#000000")
+
+	// Inverse roles
+	t.roles.InverseSurface = t.palette.Neutral100
+	t.roles.InverseOnSurface = t.palette.Neutral800
+	t.roles.InversePrimary = t.palette.Primary800
+
+	// Surface tint
+	t.roles.SurfaceTint = t.palette.Primary200
+}
+
 // Getters for color roles
 func (t *Colors) Primary() color.NRGBA            { return t.roles.Primary }
 func (t *Colors) OnPrimary() color.NRGBA          { return t.roles.OnPrimary }
@@ -375,6 +462,24 @@ func (t *Colors) SurfaceTint() color.NRGBA { return t.roles.SurfaceTint }
 
 // Getters for palette colors
 func (t *Colors) Palette() ColorPalette { return t.palette }
+
+// Theme mode methods
+func (t *Colors) ThemeMode() ThemeMode { return t.themeMode }
+
+func (t *Colors) SetThemeMode(mode ThemeMode) {
+	if t.themeMode != mode {
+		t.themeMode = mode
+		t.initRoles()
+	}
+}
+
+func (t *Colors) ToggleTheme() {
+	if t.themeMode == ThemeModeLight {
+		t.SetThemeMode(ThemeModeDark)
+	} else {
+		t.SetThemeMode(ThemeModeLight)
+	}
+}
 
 // Utility functions
 func hex(s string) color.NRGBA {
