@@ -1,6 +1,7 @@
 package fromage
 
 import (
+	"context"
 	"testing"
 
 	"gioui.org/layout"
@@ -9,7 +10,7 @@ import (
 func TestFlex(t *testing.T) {
 	// Create a theme
 	th := NewThemeWithMode(
-		nil, // context not needed for this test
+		context.Background(), // context not needed for this test
 		NewColors,
 		nil, // shaper not needed for this test
 		16,  // text size
@@ -36,7 +37,7 @@ func TestFlex(t *testing.T) {
 }
 
 func TestFlexAlignment(t *testing.T) {
-	th := NewThemeWithMode(nil, NewColors, nil, 16, ThemeModeLight)
+	th := NewThemeWithMode(context.Background(), NewColors, nil, 16, ThemeModeLight)
 
 	// Test alignment methods
 	flex := th.NewFlex()
@@ -67,7 +68,7 @@ func TestFlexAlignment(t *testing.T) {
 }
 
 func TestFlexSpacing(t *testing.T) {
-	th := NewThemeWithMode(nil, NewColors, nil, 16, ThemeModeLight)
+	th := NewThemeWithMode(context.Background(), NewColors, nil, 16, ThemeModeLight)
 
 	// Test spacing methods
 	flex := th.NewFlex()
@@ -110,7 +111,7 @@ func TestFlexSpacing(t *testing.T) {
 }
 
 func TestFlexChildren(t *testing.T) {
-	th := NewThemeWithMode(nil, NewColors, nil, 16, ThemeModeLight)
+	th := NewThemeWithMode(context.Background(), NewColors, nil, 16, ThemeModeLight)
 
 	// Test adding children
 	flex := th.NewFlex()
@@ -134,7 +135,7 @@ func TestFlexChildren(t *testing.T) {
 }
 
 func TestFlexConvenienceMethods(t *testing.T) {
-	th := NewThemeWithMode(nil, NewColors, nil, 16, ThemeModeLight)
+	th := NewThemeWithMode(context.Background(), NewColors, nil, 16, ThemeModeLight)
 
 	// Test Column
 	column := th.Column()

@@ -1,6 +1,7 @@
 package fromage
 
 import (
+	"context"
 	"image/color"
 	"testing"
 
@@ -10,7 +11,7 @@ import (
 func TestFill(t *testing.T) {
 	// Create a theme
 	th := NewThemeWithMode(
-		nil, // context not needed for this test
+		context.Background(), // context not needed for this test
 		NewColors,
 		nil, // shaper not needed for this test
 		16,  // text size
@@ -26,7 +27,7 @@ func TestFill(t *testing.T) {
 	// Test fill with radius
 	fillWithRadius := th.NewFillWithRadius(color.NRGBA{R: 0, G: 255, B: 0, A: 255}, 8, CornerAll, nil)
 	if fillWithRadius == nil {
-		t.Error("NewFillWithRadius should return a non-nil fill")
+		t.Fatal("NewFillWithRadius should return a non-nil fill")
 	}
 	if fillWithRadius.cornerRadius != 8 {
 		t.Errorf("Expected corner radius 8, got %f", fillWithRadius.cornerRadius)
@@ -37,7 +38,7 @@ func TestFill(t *testing.T) {
 }
 
 func TestFillFluentAPI(t *testing.T) {
-	th := NewThemeWithMode(nil, NewColors, nil, 16, ThemeModeLight)
+	th := NewThemeWithMode(context.Background(), NewColors, nil, 16, ThemeModeLight)
 
 	// Test fluent API
 	fill := th.NewFill(color.NRGBA{R: 255, G: 0, B: 0, A: 255}, nil).
@@ -66,7 +67,7 @@ func TestFillFluentAPI(t *testing.T) {
 }
 
 func TestFillConvenienceMethods(t *testing.T) {
-	th := NewThemeWithMode(nil, NewColors, nil, 16, ThemeModeLight)
+	th := NewThemeWithMode(context.Background(), NewColors, nil, 16, ThemeModeLight)
 
 	// Test FillPrimary
 	fillPrimary := th.FillPrimary(nil)
@@ -125,7 +126,7 @@ func TestFillCornerFlags(t *testing.T) {
 }
 
 func TestFillIfCorner(t *testing.T) {
-	th := NewThemeWithMode(nil, NewColors, nil, 16, ThemeModeLight)
+	th := NewThemeWithMode(context.Background(), NewColors, nil, 16, ThemeModeLight)
 	fill := th.NewFill(color.NRGBA{}, nil)
 
 	// Test ifCorner method

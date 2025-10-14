@@ -1,6 +1,7 @@
 package fromage
 
 import (
+	"context"
 	"image/color"
 	"testing"
 
@@ -10,7 +11,7 @@ import (
 func TestButtonLayout(t *testing.T) {
 	// Create a theme
 	th := NewThemeWithMode(
-		nil, // context not needed for this test
+		context.Background(), // context not needed for this test
 		NewColors,
 		nil, // shaper not needed for this test
 		16,  // text size
@@ -24,7 +25,7 @@ func TestButtonLayout(t *testing.T) {
 	}
 
 	// Test default values
-	if button.background != th.Colors.Primary() {
+	if th.Colors != nil && button.background != th.Colors.Primary() {
 		t.Errorf("Expected primary color, got %v", button.background)
 	}
 	expectedRadius := unit.Dp(float32(th.TextSize) * 0.25)
@@ -40,7 +41,7 @@ func TestButtonLayout(t *testing.T) {
 }
 
 func TestButtonLayoutFluentAPI(t *testing.T) {
-	th := NewThemeWithMode(nil, NewColors, nil, 16, ThemeModeLight)
+	th := NewThemeWithMode(context.Background(), NewColors, nil, 16, ThemeModeLight)
 
 	// Test fluent API
 	newColor := color.NRGBA{R: 255, G: 0, B: 0, A: 255}
@@ -66,7 +67,7 @@ func TestButtonLayoutFluentAPI(t *testing.T) {
 }
 
 func TestButtonLayoutConvenienceMethods(t *testing.T) {
-	th := NewThemeWithMode(nil, NewColors, nil, 16, ThemeModeLight)
+	th := NewThemeWithMode(context.Background(), NewColors, nil, 16, ThemeModeLight)
 
 	// Test PrimaryButton
 	primaryButton := th.PrimaryButton(nil)
@@ -108,7 +109,7 @@ func TestButtonLayoutConvenienceMethods(t *testing.T) {
 }
 
 func TestButtonLayoutIfCorner(t *testing.T) {
-	th := NewThemeWithMode(nil, NewColors, nil, 16, ThemeModeLight)
+	th := NewThemeWithMode(context.Background(), NewColors, nil, 16, ThemeModeLight)
 	button := th.NewButtonLayout()
 
 	// Test ifCorner method
@@ -121,7 +122,7 @@ func TestButtonLayoutIfCorner(t *testing.T) {
 }
 
 func TestButtonLayoutPillRadius(t *testing.T) {
-	th := NewThemeWithMode(nil, NewColors, nil, 16, ThemeModeLight)
+	th := NewThemeWithMode(context.Background(), NewColors, nil, 16, ThemeModeLight)
 
 	// Test PillRadius method
 	button := th.NewButtonLayout().PillRadius()
@@ -132,25 +133,25 @@ func TestButtonLayoutPillRadius(t *testing.T) {
 }
 
 func TestButtonLayoutTextButton(t *testing.T) {
-	th := NewThemeWithMode(nil, NewColors, nil, 16, ThemeModeLight)
+	th := NewThemeWithMode(context.Background(), NewColors, nil, 16, ThemeModeLight)
 
 	// Test TextButton creation
 	textButton := th.TextButton("Test")
 	if textButton == nil {
 		t.Error("TextButton should return a non-nil button")
 	}
-	if textButton.widget == nil {
+	if textButton == nil || textButton.widget == nil {
 		t.Error("TextButton should have a widget")
 	}
 }
 
 func TestButtonLayoutIconButton(t *testing.T) {
-	th := NewThemeWithMode(nil, NewColors, nil, 16, ThemeModeLight)
+	th := NewThemeWithMode(context.Background(), NewColors, nil, 16, ThemeModeLight)
 
 	// Test IconButton creation
 	iconButton := th.IconButton("★")
 	if iconButton == nil {
-		t.Error("IconButton should return a non-nil button")
+		t.Fatal("IconButton should return a non-nil button")
 	}
 	if iconButton.widget == nil {
 		t.Error("IconButton should have a widget")

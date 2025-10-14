@@ -1,6 +1,7 @@
 package fromage
 
 import (
+	"context"
 	"testing"
 
 	"gioui.org/text"
@@ -10,7 +11,7 @@ import (
 func TestLabel(t *testing.T) {
 	// Create a theme
 	th := NewThemeWithMode(
-		nil, // context not needed for this test
+		context.Background(), // context not needed for this test
 		NewColors,
 		nil, // shaper not needed for this test
 		unit.Dp(16),
@@ -44,7 +45,7 @@ func TestLabel(t *testing.T) {
 
 func TestLabelConvenienceMethods(t *testing.T) {
 	th := NewThemeWithMode(
-		nil,
+		context.Background(),
 		NewColors,
 		nil,
 		unit.Dp(16),
