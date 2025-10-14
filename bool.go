@@ -54,6 +54,14 @@ func (t *Theme) NewBool(value bool) *Bool {
 	height := unit.Dp(20)    // Standard switch height
 	thumbSize := unit.Dp(16) // Thumb circle size
 
+	// Initialize animation progress based on initial value
+	var initialProgress float32
+	if value {
+		initialProgress = 1.0 // Start in "on" position
+	} else {
+		initialProgress = 0.0 // Start in "off" position
+	}
+
 	return &Bool{
 		theme:                t,
 		value:                value,
@@ -66,7 +74,7 @@ func (t *Theme) NewBool(value bool) *Bool {
 		width:                width,
 		height:               height,
 		thumbSize:            thumbSize,
-		animationProgress:    0.0,
+		animationProgress:    initialProgress,
 		animationStart:       time.Time{},
 		isAnimating:          false,
 		colorTransitionStart: time.Time{},
@@ -200,29 +208,30 @@ func (b *Bool) Layout(g C) D {
 		// Draw the thumb (circle)
 		b.drawThumb(g, minSize, thumbSize)
 
-		// Draw ink animations for press history
-		for _, press := range b.clickable.History() {
-			b.drawInk(g, press, minSize)
-		}
-
 		return D{Size: minSize}
 	})
 }
 
 // drawTrack draws the switch track (background)
 func (b *Bool) drawTrack(g C, size image.Point) {
-	// Determine track color based on state
-	trackColor := b.background
+	// Determine track color based on state and theme
+	var trackColor color.NRGBA
 	if b.value {
-		// When on, use primary color with opacity based on animation
-		primary := b.theme.Colors.Primary()
+		// When on, use the configured background color (text color)
+		trackColor = b.background
+	} else {
+		// When off, use 50% opacity of the text color
+		textColor := b.theme.Colors.OnBackground()
 		trackColor = color.NRGBA{
-			R: primary.R,
-			G: primary.G,
-			B: primary.B,
-			A: uint8(128 + (127 * b.animationProgress)), // Fade from dim to full
+			R: textColor.R,
+			G: textColor.G,
+			B: textColor.B,
+			A: textColor.A / 2, // 50% opacity
 		}
 	}
+
+	// Debug: Print the track color to see what's happening
+	// fmt.Printf("Switch state: %v, trackColor: %+v, b.background: %+v\n", b.value, trackColor, b.background)
 
 	// Create rounded rectangle clip for the track
 	rect := image.Rectangle{Max: size}
@@ -260,9 +269,19 @@ func (b *Bool) drawThumb(g C, size image.Point, thumbSize int) {
 		Max: image.Pt(thumbX+thumbSize, thumbY+thumbSize),
 	}
 
+	// Determine thumb color based on theme
+	var thumbColor color.NRGBA
+	if b.theme.IsLight() {
+		// Light mode: white thumb
+		thumbColor = color.NRGBA{R: 255, G: 255, B: 255, A: 255}
+	} else {
+		// Dark mode: black thumb
+		thumbColor = color.NRGBA{R: 0, G: 0, B: 0, A: 255}
+	}
+
 	// Draw thumb circle
 	defer clip.Ellipse(thumbRect).Push(g.Ops).Pop()
-	paint.Fill(g.Ops, b.foreground)
+	paint.Fill(g.Ops, thumbColor)
 }
 
 // startAnimation begins a new animation
@@ -363,8 +382,16 @@ func (b *Bool) UpdateThemeColors(now time.Time) {
 	b.oldForeground = b.foreground
 
 	// Update to new theme colors
-	b.background = color.NRGBA{R: 128, G: 128, B: 128, A: 255} // Dim gray for off state
-	b.foreground = b.theme.Colors.Surface()                    // White thumb
+	b.background = b.theme.Colors.OnBackground() // Update to new text color
+
+	// Update thumb color based on new theme
+	if b.theme.IsLight() {
+		// Light mode: white thumb
+		b.foreground = color.NRGBA{R: 255, G: 255, B: 255, A: 255}
+	} else {
+		// Dark mode: black thumb
+		b.foreground = color.NRGBA{R: 0, G: 0, B: 0, A: 255}
+	}
 
 	// Start color transition
 	b.startColorTransition(now)
@@ -380,128 +407,24 @@ func (b *Bool) hoveredColor(c color.NRGBA) color.NRGBA {
 	}
 }
 
-// drawInk draws the animated ink effect for button presses
-func (b *Bool) drawInk(g C, press widget.Press, size image.Point) {
-	// Animation durations (matching Gio's material design)
-	const (
-		expandDuration = float32(0.5)
-		fadeDuration   = float32(0.9)
-	)
-
-	now := g.Now
-	t := float32(now.Sub(press.Start).Seconds())
-
-	end := press.End
-	if end.IsZero() {
-		end = now
-	}
-
-	endt := float32(end.Sub(press.Start).Seconds())
-
-	// Compute the fade-in/out position in [0;1]
-	var alphat float32
-	{
-		var haste float32
-		if press.Cancelled {
-			if h := 0.5 - endt/fadeDuration; h > 0 {
-				haste = h
-			}
-		}
-		// Fade in
-		half1 := t/fadeDuration + haste
-		if half1 > 0.5 {
-			half1 = 0.5
-		}
-
-		// Fade out
-		half2 := float32(now.Sub(end).Seconds())
-		half2 /= fadeDuration
-		half2 += haste
-		if half2 > 0.5 {
-			return
-		}
-
-		alphat = half1 + half2
-	}
-
-	// Compute the expand position in [0;1]
-	sizet := t
-	if press.Cancelled {
-		sizet = endt
-	}
-	sizet /= expandDuration
-
-	// Animate only ended presses, and presses that are fading in
-	if !press.End.IsZero() || sizet <= 1.0 {
-		g.Execute(op.InvalidateCmd{})
-	}
-
-	if sizet > 1.0 {
-		sizet = 1.0
-	}
-
-	if alphat > .5 {
-		alphat = 1.0 - alphat
-	}
-
-	t2 := alphat * 2
-	alphaBezier := t2 * t2 * (3.0 - 2.0*t2)
-	sizeBezier := sizet * sizet * (3.0 - 2.0*sizet)
-
-	// Calculate ink size and position
-	inkSize := size.X
-	if h := size.Y; h > inkSize {
-		inkSize = h
-	}
-	inkSize = int(float32(inkSize) * 2 * sizeBezier)
-	alpha := 0.7 * alphaBezier
-
-	// Create ink color (white with alpha)
-	inkColor := color.NRGBA{
-		R: 0xff,
-		G: 0xff,
-		B: 0xff,
-		A: uint8(alpha * 0xff),
-	}
-
-	// Draw circular ink effect at press position
-	inkRadius := inkSize / 2
-	inkRect := image.Rectangle{
-		Min: image.Pt(press.Position.X-inkRadius, press.Position.Y-inkRadius),
-		Max: image.Pt(press.Position.X+inkRadius, press.Position.Y+inkRadius),
-	}
-
-	// Create a clip mask using the same rounded rectangle as the track
-	trackRect := image.Rectangle{Max: size}
-	radius := float32(g.Dp(b.cornerRadius))
-	trackClip := clip.RRect{
-		Rect: trackRect,
-		NW:   int(radius),
-		NE:   int(radius),
-		SW:   int(radius),
-		SE:   int(radius),
-	}
-
-	// Apply the track clip mask to constrain ink to the switch area
-	defer trackClip.Push(g.Ops).Pop()
-	defer clip.Ellipse(inkRect).Push(g.Ops).Pop()
-	paint.Fill(g.Ops, inkColor)
-}
-
 // Convenience methods for common boolean widget patterns
 
-// PrimaryBool creates a boolean widget with primary colors
+// PrimaryBool creates a boolean widget with primary color as track when active and background color thumb
 func (t *Theme) PrimaryBool(value bool) *Bool {
+	// Use explicit white color for thumb
+	thumbColor := color.NRGBA{R: 255, G: 255, B: 255, A: 255} // White thumb
 	return t.NewBool(value).
 		Background(t.Colors.Primary()).
-		Foreground(t.Colors.OnPrimary())
+		Foreground(thumbColor)
 }
 
-// SecondaryBool creates a boolean widget with secondary colors
+// SecondaryBool creates a boolean widget with secondary color as track when active and background color thumb
 func (t *Theme) SecondaryBool(value bool) *Bool {
+	// Use explicit white color for thumb
+	thumbColor := color.NRGBA{R: 255, G: 255, B: 255, A: 255} // White thumb
 	return t.NewBool(value).
 		Background(t.Colors.Secondary()).
-		Foreground(t.Colors.OnSecondary())
+		Foreground(thumbColor)
 }
 
 // SurfaceBool creates a boolean widget with surface colors
@@ -519,11 +442,19 @@ func (t *Theme) Checkbox(value bool) *Bool {
 		CornerRadius(unit.Dp(2)) // Small corner radius for checkbox
 }
 
-// Switch creates a switch-style boolean widget (Material Design switch)
+// Switch creates a switch-style boolean widget with proper light/dark mode colors
 func (t *Theme) Switch(value bool) *Bool {
+	var thumbColor color.NRGBA
+	if t.IsLight() {
+		// Light mode: white thumb
+		thumbColor = color.NRGBA{R: 255, G: 255, B: 255, A: 255}
+	} else {
+		// Dark mode: black thumb
+		thumbColor = color.NRGBA{R: 0, G: 0, B: 0, A: 255}
+	}
 	return t.NewBool(value).
-		Background(color.NRGBA{R: 128, G: 128, B: 128, A: 255}). // Dim gray for off state
-		Foreground(t.Colors.Surface())                           // White thumb
+		Background(t.Colors.OnBackground()). // Text color as track
+		Foreground(thumbColor)
 }
 
 // SwitchWithColor creates a switch with custom background color
