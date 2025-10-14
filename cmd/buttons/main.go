@@ -60,7 +60,6 @@ func mainUI(gtx layout.Context, th *fromage.Theme) {
 	// Fill background with theme background color
 	paint.Fill(gtx.Ops, th.Colors.Background())
 
-	// Use the new Flex API with enhanced button demonstrations
 	th.CenteredColumn().
 		Rigid(func(g C) D {
 			// Title with primary color fill
