@@ -15,7 +15,7 @@ import (
 // BoolHook is a function type for handling boolean value changes
 type BoolHook func(b bool)
 
-// Bool represents a boolean toggle widget
+// Bool represents a boolean toggle widget (Material Design switch)
 type Bool struct {
 	// Theme reference
 	theme *Theme
@@ -28,25 +28,37 @@ type Bool struct {
 	// Callback function for value changes
 	onChange BoolHook
 	// Visual styling
-	background   color.NRGBA
-	foreground   color.NRGBA
-	cornerRadius unit.Dp
+	background   color.NRGBA // Background color of the switch track
+	foreground   color.NRGBA // Color of the thumb circle
+	cornerRadius unit.Dp     // Corner radius for the track
 	// Size constraints
-	size unit.Dp
+	width     unit.Dp // Width of the switch track
+	height    unit.Dp // Height of the switch track
+	thumbSize unit.Dp // Size of the thumb circle
+	// Animation state
+	animationProgress float32 // 0.0 = off, 1.0 = on
 }
 
 // NewBool creates a new boolean widget with its own dedicated clickable
 func (t *Theme) NewBool(value bool) *Bool {
+	// Material Design switch dimensions
+	width := unit.Dp(36)     // Standard switch width
+	height := unit.Dp(20)    // Standard switch height
+	thumbSize := unit.Dp(16) // Thumb circle size
+
 	return &Bool{
-		theme:        t,
-		value:        value,
-		clickable:    &widget.Clickable{}, // Each bool gets its own dedicated clickable
-		changed:      false,
-		onChange:     func(b bool) {},
-		background:   t.Colors.Primary(),
-		foreground:   t.Colors.OnPrimary(),
-		cornerRadius: unit.Dp(float32(t.TextSize) * 0.25),
-		size:         unit.Dp(float32(t.TextSize) * 1.5), // Scale with text size
+		theme:             t,
+		value:             value,
+		clickable:         &widget.Clickable{}, // Each bool gets its own dedicated clickable
+		changed:           false,
+		onChange:          func(b bool) {},
+		background:        color.NRGBA{R: 128, G: 128, B: 128, A: 255}, // Dim gray for off state
+		foreground:        t.Colors.Surface(),                          // White thumb
+		cornerRadius:      unit.Dp(10),                                 // Half of height for pill shape
+		width:             width,
+		height:            height,
+		thumbSize:         thumbSize,
+		animationProgress: 0.0,
 	}
 }
 
@@ -88,9 +100,30 @@ func (b *Bool) CornerRadius(radius unit.Dp) *Bool {
 	return b
 }
 
-// Size sets the widget size
+// Size sets the widget size (deprecated, use Width/Height instead)
 func (b *Bool) Size(size unit.Dp) *Bool {
-	b.size = size
+	b.width = size * 2 // Maintain aspect ratio
+	b.height = size
+	b.thumbSize = size * 0.8
+	return b
+}
+
+// Width sets the switch track width
+func (b *Bool) Width(width unit.Dp) *Bool {
+	b.width = width
+	return b
+}
+
+// Height sets the switch track height
+func (b *Bool) Height(height unit.Dp) *Bool {
+	b.height = height
+	b.cornerRadius = height / 2 // Maintain pill shape
+	return b
+}
+
+// ThumbSize sets the thumb circle size
+func (b *Bool) ThumbSize(size unit.Dp) *Bool {
+	b.thumbSize = size
 	return b
 }
 
@@ -116,9 +149,9 @@ func (b *Bool) Pressed() bool {
 	return b.clickable.Pressed()
 }
 
-// Layout renders the boolean widget
+// Layout renders the Material Design switch
 func (b *Bool) Layout(g C) D {
-	// Handle click events BEFORE layout (like regular buttons)
+	// Handle click events BEFORE layout
 	if b.clickable.Clicked(g) {
 		b.value = !b.value
 		b.changed = true
@@ -127,35 +160,60 @@ func (b *Bool) Layout(g C) D {
 		}
 	}
 
-	// Calculate size
-	size := g.Dp(b.size)
-	minSize := image.Pt(size, size)
+	// Update animation progress
+	if b.value {
+		if b.animationProgress < 1.0 {
+			b.animationProgress = minFloat32(1.0, b.animationProgress+0.1) // Smooth animation
+		}
+	} else {
+		if b.animationProgress > 0.0 {
+			b.animationProgress = maxFloat32(0.0, b.animationProgress-0.1) // Smooth animation
+		}
+	}
+
+	// Calculate dimensions
+	width := g.Dp(b.width)
+	height := g.Dp(b.height)
+	thumbSize := g.Dp(b.thumbSize)
+
+	minSize := image.Pt(width, height)
 
 	// Create the layout using the clickable's Layout method
 	return b.clickable.Layout(g, func(g C) D {
 		// Add semantic information for accessibility
 		semantic.Button.Add(g.Ops)
 
-		// Draw background
-		bgDims := b.drawBackground(g, minSize)
+		// Draw the switch track (background)
+		b.drawTrack(g, minSize)
 
-		// Draw checkmark or content
-		b.drawContent(g, minSize)
+		// Draw the thumb (circle)
+		b.drawThumb(g, minSize, thumbSize)
 
-		return bgDims
+		// Draw ink animations for press history
+		for _, press := range b.clickable.History() {
+			b.drawInk(g, press, minSize)
+		}
+
+		return D{Size: minSize}
 	})
 }
 
-// drawBackground draws the widget background
-func (b *Bool) drawBackground(g C, size image.Point) D {
-	// Adjust background color based on state
-	bgColor := b.background
-	if b.Hovered() {
-		// Lighten background on hover
-		bgColor = b.hoveredColor(bgColor)
+// drawTrack draws the switch track (background)
+func (b *Bool) drawTrack(g C, size image.Point) {
+	// Determine track color based on state
+	trackColor := b.background
+	if b.value {
+		// When on, use primary color with opacity based on animation
+		primary := b.theme.Colors.Primary()
+		trackColor = color.NRGBA{
+			R: primary.R,
+			G: primary.G,
+			B: primary.B,
+			A: uint8(128 + (127 * b.animationProgress)), // Fade from dim to full
+		}
 	}
 
-	// Create rounded rectangle clip
+	// Create rounded rectangle clip for the track
 	rect := image.Rectangle{Max: size}
 	radius := float32(g.Dp(b.cornerRadius))
 
@@ -168,50 +226,40 @@ func (b *Bool) drawBackground(g C, size image.Point) D {
 		SE:   int(radius),
 	}
 
-	// Push clip and fill background
+	// Push clip and fill track
 	defer rrect.Push(g.Ops).Pop()
-	paint.Fill(g.Ops, bgColor)
-
-	// Draw ink animations for press history
-	for _, press := range b.clickable.History() {
-		b.drawInk(g, press, size)
-	}
-
-	return D{Size: size}
+	paint.Fill(g.Ops, trackColor)
 }
 
-// drawContent draws the checkmark or other visual indicator
-func (b *Bool) drawContent(g C, size image.Point) {
-	if !b.value {
-		return // Don't draw anything when false
+// drawThumb draws the thumb circle
+func (b *Bool) drawThumb(g C, size image.Point, thumbSize int) {
+	// Calculate thumb position based on animation progress
+	// Left position when off (progress = 0), right position when on (progress = 1)
+	padding := (size.Y - thumbSize) / 2
+	leftPos := padding
+	rightPos := size.X - thumbSize - padding
+
+	// Interpolate position based on animation progress
+	thumbX := int(float32(leftPos) + float32(rightPos-leftPos)*b.animationProgress)
+	thumbY := padding
+
+	// Create thumb circle
+	thumbRect := image.Rectangle{
+		Min: image.Pt(thumbX, thumbY),
+		Max: image.Pt(thumbX+thumbSize, thumbY+thumbSize),
 	}
 
-	// Draw a simple checkmark using lines
-	// This is a basic implementation - could be enhanced with better graphics
-	center := image.Pt(size.X/2, size.Y/2)
-	checkSize := int(float32(size.X) * 0.4) // 40% of widget size
-
-	// Create a simple checkmark path
-	// This is a placeholder - in a real implementation you might use
-	// a proper vector graphics library or pre-rendered icon
-
-	// For now, we'll draw a simple filled circle to indicate "on" state
-	circleRadius := checkSize / 2
-	circleRect := image.Rectangle{
-		Min: image.Pt(center.X-circleRadius, center.Y-circleRadius),
-		Max: image.Pt(center.X+circleRadius, center.Y+circleRadius),
-	}
-
-	defer clip.Ellipse(circleRect).Push(g.Ops).Pop()
+	// Draw thumb circle
+	defer clip.Ellipse(thumbRect).Push(g.Ops).Pop()
 	paint.Fill(g.Ops, b.foreground)
 }
 
 // hoveredColor lightens the color for hover effect
 func (b *Bool) hoveredColor(c color.NRGBA) color.NRGBA {
 	return color.NRGBA{
-		R: uint8(min(255, int(c.R)+30)),
-		G: uint8(min(255, int(c.G)+30)),
-		B: uint8(min(255, int(c.B)+30)),
+		R: uint8(minInt(255, int(c.R)+30)),
+		G: uint8(minInt(255, int(c.G)+30)),
+		B: uint8(minInt(255, int(c.B)+30)),
 		A: c.A,
 	}
 }
@@ -307,6 +355,19 @@ func (b *Bool) drawInk(g C, press widget.Press, size image.Point) {
 		Max: image.Pt(press.Position.X+inkRadius, press.Position.Y+inkRadius),
 	}
 
+	// Create a clip mask using the same rounded rectangle as the track
+	trackRect := image.Rectangle{Max: size}
+	radius := float32(g.Dp(b.cornerRadius))
+	trackClip := clip.RRect{
+		Rect: trackRect,
+		NW:   int(radius),
+		NE:   int(radius),
+		SW:   int(radius),
+		SE:   int(radius),
+	}
+
+	// Apply the track clip mask to constrain ink to the switch area
+	defer trackClip.Push(g.Ops).Pop()
 	defer clip.Ellipse(inkRect).Push(g.Ops).Pop()
 	paint.Fill(g.Ops, inkColor)
 }
@@ -342,10 +403,38 @@ func (t *Theme) Checkbox(value bool) *Bool {
 		CornerRadius(unit.Dp(2)) // Small corner radius for checkbox
 }
 
-// Switch creates a switch-style boolean widget (pill-shaped)
+// Switch creates a switch-style boolean widget (Material Design switch)
 func (t *Theme) Switch(value bool) *Bool {
 	return t.NewBool(value).
-		Background(t.Colors.Surface()).
-		Foreground(t.Colors.Primary()).
-		CornerRadius(unit.Dp(1000)) // Large radius for pill shape
+		Background(color.NRGBA{R: 128, G: 128, B: 128, A: 255}). // Dim gray for off state
+		Foreground(t.Colors.Surface())                           // White thumb
+}
+
+// SwitchWithColor creates a switch with custom background color
+func (t *Theme) SwitchWithColor(value bool, bgColor color.NRGBA) *Bool {
+	return t.NewBool(value).
+		Background(bgColor).
+		Foreground(t.Colors.Surface()) // White thumb
+}
+
+// Helper functions for animation
+func minFloat32(a, b float32) float32 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func maxFloat32(a, b float32) float32 {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

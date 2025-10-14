@@ -98,11 +98,7 @@ func mainUI(gtx layout.Context, th *fromage.Theme) {
 	th.CenteredColumn().
 		Rigid(func(g C) D {
 			// Title with primary color fill
-			return th.FillPrimary(
-				func(g C) D {
-					return th.H1("Interactive Button Demo").Alignment(text.Middle).Layout(g)
-				},
-			).CornerRadius(8).Layout(g)
+			return th.H3("Interactive Button Demo").Alignment(text.Middle).Layout(g)
 		}).
 		Rigid(func(g C) D {
 			themeText := "Current Theme: Light"
@@ -118,22 +114,21 @@ func mainUI(gtx layout.Context, th *fromage.Theme) {
 		}).
 		Rigid(func(g C) D {
 			// Main interactive button with theme toggle and icon
-			button := th.PrimaryButton(
-				func(g C) D {
-					return th.HFlex().
-						SpaceEvenly().
-						AlignMiddle().
-						Rigid(func(g C) D {
-							return settingsIcon.Layout(g, th.Colors.Primary())
-						}).
-						Rigid(func(g C) D {
-							return th.Body1("Toggle Theme").
-								Color(th.Colors.OnPrimary()).
-								Alignment(text.Middle).
-								Layout(g)
-						}).
-						Layout(g)
-				},
+			button := th.PrimaryButton(func(g C) D {
+				return th.HFlex().
+					SpaceEvenly().
+					AlignMiddle().
+					Rigid(func(g C) D {
+						return settingsIcon.Layout(g, th.Colors.Primary())
+					}).
+					Rigid(func(g C) D {
+						return th.Body1("Toggle Theme").
+							Color(th.Colors.OnPrimary()).
+							Alignment(text.Middle).
+							Layout(g)
+					}).
+					Layout(g)
+			},
 			)
 
 			// Check for clicks BEFORE layout (this is the key fix!)
@@ -174,22 +169,21 @@ func mainUI(gtx layout.Context, th *fromage.Theme) {
 				}).
 				Rigid(func(g C) D {
 					// Surface button with heart icon
-					btn := th.SurfaceButton(
-						func(g C) D {
-							return th.HFlex().
-								SpaceEvenly().
-								AlignMiddle().
-								Rigid(func(g C) D {
-									return heartIcon.Layout(g, th.Colors.OnSurface())
-								}).
-								Rigid(func(g C) D {
-									return th.Body2("Surface").
-										Color(th.Colors.OnSurface()).
-										Alignment(text.Middle).
-										Layout(g)
-								}).
-								Layout(g)
-						},
+					btn := th.SurfaceButton(func(g C) D {
+						return th.HFlex().
+							SpaceEvenly().
+							AlignMiddle().
+							Rigid(func(g C) D {
+								return heartIcon.Layout(g, th.Colors.OnSurface())
+							}).
+							Rigid(func(g C) D {
+								return th.Body2("Surface").
+									Color(th.Colors.OnSurface()).
+									Alignment(text.Middle).
+									Layout(g)
+							}).
+							Layout(g)
+					},
 					)
 					if btn.Clicked(g) {
 						log.I.F("Surface button clicked")
@@ -198,22 +192,21 @@ func mainUI(gtx layout.Context, th *fromage.Theme) {
 				}).
 				Rigid(func(g C) D {
 					// Error button with warning icon
-					btn := th.ErrorButton(
-						func(g C) D {
-							return th.HFlex().
-								SpaceEvenly().
-								AlignMiddle().
-								Rigid(func(g C) D {
-									return settingsIcon.Layout(g, th.Colors.OnError())
-								}).
-								Rigid(func(g C) D {
-									return th.Body2("Error").
-										Color(th.Colors.OnError()).
-										Alignment(text.Middle).
-										Layout(g)
-								}).
-								Layout(g)
-						},
+					btn := th.ErrorButton(func(g C) D {
+						return th.HFlex().
+							SpaceEvenly().
+							AlignMiddle().
+							Rigid(func(g C) D {
+								return settingsIcon.Layout(g, th.Colors.OnError())
+							}).
+							Rigid(func(g C) D {
+								return th.Body2("Error").
+									Color(th.Colors.OnError()).
+									Alignment(text.Middle).
+									Layout(g)
+							}).
+							Layout(g)
+					},
 					)
 					if btn.Clicked(g) {
 						log.I.F("Error button clicked")
@@ -243,13 +236,12 @@ func mainUI(gtx layout.Context, th *fromage.Theme) {
 				}).
 				Rigid(func(g C) D {
 					// Pill button
-					btn := th.PillButton(
-						func(g C) D {
-							return th.Caption("Pill Shape").
-								Color(th.Colors.OnPrimary()).
-								Alignment(text.Middle).
-								Layout(g)
-						},
+					btn := th.PillButton(func(g C) D {
+						return th.Caption("Pill Shape").
+							Color(th.Colors.OnPrimary()).
+							Alignment(text.Middle).
+							Layout(g)
+					},
 					)
 					if btn.Clicked(g) {
 						log.I.F("pill button clicked")
@@ -373,13 +365,12 @@ func mainUI(gtx layout.Context, th *fromage.Theme) {
 		}).
 		Rigid(func(g C) D {
 			// Disabled button example
-			btn := th.PrimaryButton(
-				func(g C) D {
-					return th.Body2("Disabled Button").
-						Color(th.Colors.OnPrimary()).
-						Alignment(text.Middle).
-						Layout(g)
-				},
+			btn := th.PrimaryButton(func(g C) D {
+				return th.Body2("Disabled Button").
+					Color(th.Colors.OnPrimary()).
+					Alignment(text.Middle).
+					Layout(g)
+			},
 			).Disabled(true) // This button is disabled
 
 			return btn.Layout(g)

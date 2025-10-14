@@ -108,32 +108,32 @@ func (l *Label) Layout(g C) D {
 
 // H1 creates a large heading
 func (t *Theme) H1(text string) *Label {
-	return t.NewLabel().Text(text).TextScale(6.0) // 96/16
+	return t.NewLabel().Text(text).TextScale(2) // 96/16
 }
 
 // H2 creates a medium heading
 func (t *Theme) H2(text string) *Label {
-	return t.NewLabel().Text(text).TextScale(3.75) // 60/16
+	return t.NewLabel().Text(text).TextScale(1.75) // 60/16
 }
 
 // H3 creates a small heading
 func (t *Theme) H3(text string) *Label {
-	return t.NewLabel().Text(text).TextScale(3.0) // 48/16
+	return t.NewLabel().Text(text).TextScale(1.5) // 48/16
 }
 
 // H4 creates a smaller heading
 func (t *Theme) H4(text string) *Label {
-	return t.NewLabel().Text(text).TextScale(2.125) // 34/16
+	return t.NewLabel().Text(text).TextScale(1.25) // 34/16
 }
 
 // H5 creates a small heading
 func (t *Theme) H5(text string) *Label {
-	return t.NewLabel().Text(text).TextScale(1.5) // 24/16
+	return t.NewLabel().Text(text).TextScale(1) // 24/16
 }
 
 // H6 creates the smallest heading
 func (t *Theme) H6(text string) *Label {
-	return t.NewLabel().Text(text).TextScale(1.25) // 20/16
+	return t.NewLabel().Text(text).TextScale(0.75) // 20/16
 }
 
 // Body1 creates normal body text
@@ -143,10 +143,10 @@ func (t *Theme) Body1(text string) *Label {
 
 // Body2 creates smaller body text
 func (t *Theme) Body2(text string) *Label {
-	return t.NewLabel().Text(text).TextScale(0.875) // 14/16
+	return t.NewLabel().Text(text).TextScale(0.75) // 14/16
 }
 
 // Caption creates caption text
 func (t *Theme) Caption(text string) *Label {
-	return t.NewLabel().Text(text).TextScale(0.75) // 12/16
+	return t.NewLabel().Text(text).TextScale(0.5) // 12/16
 }
