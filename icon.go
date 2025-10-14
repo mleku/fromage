@@ -7,6 +7,7 @@ import (
 
 	"gioui.org/op/paint"
 	"gioui.org/unit"
+	"github.com/gio-eui/ivgconv"
 	"golang.org/x/exp/shiny/iconvg"
 )
 
@@ -193,4 +194,46 @@ func (t *Theme) IconLarge() *Icon {
 // IconExtraLarge creates an extra large icon (2x text size)
 func (t *Theme) IconExtraLarge() *Icon {
 	return t.NewIcon().Scale(2.0)
+}
+
+// SVGIconCache maps SVG data to IconVG data
+type SVGIconCache map[string]*[]byte
+
+// svgIconCache stores converted SVG to IconVG data
+var svgIconCache SVGIconCache = make(SVGIconCache)
+
+// NewIconFromSVG creates a new icon from SVG data
+func (t *Theme) NewIconFromSVG(svgData string) *Icon {
+	// Check if we already have this SVG converted
+	if iconvgData, exists := svgIconCache[svgData]; exists {
+		return t.NewIcon().Src(iconvgData)
+	}
+
+	// Convert SVG to IconVG
+	iconvgData, err := convertSVGToIconVG(svgData)
+	if err != nil {
+		// If conversion fails, return empty icon
+		return t.NewIcon()
+	}
+
+	// Cache the converted data
+	svgIconCache[svgData] = &iconvgData
+
+	return t.NewIcon().Src(&iconvgData)
+}
+
+// convertSVGToIconVG converts SVG data to IconVG format using ivgconv
+func convertSVGToIconVG(svgData string) ([]byte, error) {
+	// Use ivgconv to convert SVG to IconVG
+	iconvgData, err := ivgconv.FromContent([]byte(svgData))
+	if err != nil {
+		return nil, err
+	}
+
+	return iconvgData, nil
+}
+
+// NewIconFromSVGFile creates a new icon from SVG file content
+func (t *Theme) NewIconFromSVGFile(svgContent string) *Icon {
+	return t.NewIconFromSVG(svgContent)
 }

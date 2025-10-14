@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"image/color"
 
 	"gio.tools/icons"
 	"gioui.org/app"
@@ -32,7 +34,9 @@ var (
 
 // Application state struct to hold persistent widgets
 type AppState struct {
-	switchWidget *fromage.Bool
+	switchWidget  *fromage.Bool
+	colorSelector *fromage.ColorSelector
+	checkbox      *fromage.Checkbox
 }
 
 var appState *AppState
@@ -51,7 +55,19 @@ func main() {
 		switchWidget: th.Switch(false).SetOnChange(func(b bool) {
 			log.I.F("[HOOK] Switch toggled to: %v", b)
 		}),
+		colorSelector: th.NewColorSelector().SetOnChange(func(c color.NRGBA) {
+			log.I.F("[HOOK] Color changed to: R=%d G=%d B=%d", c.R, c.G, c.B)
+			// Update surface tint
+			th.Colors.SetSurfaceTint(c)
+		}),
+		checkbox: th.NewCheckbox(false).SetOnChange(func(b bool) {
+			log.I.F("[HOOK] Checkbox toggled to: %v", b)
+		}),
 	}
+
+	// Initialize the color selector with the current surface tint
+	currentSurfaceTint := th.Colors.GetSurfaceTint()
+	appState.colorSelector.SetColor(currentSurfaceTint)
 
 	w := fromage.NewWindow(th)
 	w.Option(app.Size(
@@ -366,6 +382,29 @@ func mainUI(gtx layout.Context, th *fromage.Theme) {
 			return btn.Layout(g)
 		}).
 		Rigid(func(g C) D {
+			// Color selector for surface tint
+			return th.VFlex().
+				SpaceEvenly().
+				Rigid(func(g C) D {
+					return th.Caption("Surface Tint Color").
+						Color(th.Colors.OnBackground()).
+						Alignment(text.Middle).
+						Layout(g)
+				}).
+				Rigid(func(g C) D {
+					return appState.colorSelector.Layout(g, th)
+				}).
+				Rigid(func(g C) D {
+					// Display current surface tint value
+					currentTint := th.Colors.GetSurfaceTint()
+					return th.Caption(fmt.Sprintf("Current: %s", fromage.ColorToHex(currentTint))).
+						Color(th.Colors.OnBackground()).
+						Alignment(text.Middle).
+						Layout(g)
+				}).
+				Layout(g)
+		}).
+		Rigid(func(g C) D {
 			// Switch widget showcase
 			return th.VFlex().
 				SpaceEvenly().
@@ -378,6 +417,23 @@ func mainUI(gtx layout.Context, th *fromage.Theme) {
 						Color(th.Colors.OnBackground()).
 						Alignment(text.Middle).
 						Layout(g)
+				}).
+				Layout(g)
+		}).
+		Rigid(func(g C) D {
+			// Checkbox showcase
+			return th.VFlex().
+				SpaceEvenly().
+				Rigid(func(g C) D {
+					return th.Caption("Checkbox Example").
+						Color(th.Colors.OnBackground()).
+						Alignment(text.Middle).
+						Layout(g)
+				}).
+				Rigid(func(g C) D {
+					// Single checkbox
+					checkbox := appState.checkbox.Label("Enable Feature")
+					return checkbox.Layout(g)
 				}).
 				Layout(g)
 		}).

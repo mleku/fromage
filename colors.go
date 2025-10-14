@@ -3,6 +3,7 @@ package fromage
 import (
 	"fmt"
 	"image/color"
+	"math"
 )
 
 // ThemeMode represents the theme variant
@@ -149,9 +150,10 @@ type ColorPalette struct {
 }
 
 type Colors struct {
-	roles     ColorRoles
-	palette   ColorPalette
-	themeMode ThemeMode
+	roles       ColorRoles
+	palette     ColorPalette
+	themeMode   ThemeMode
+	surfaceTint color.NRGBA // Custom surface tint color
 }
 
 func NewColors() *Colors {
@@ -160,7 +162,8 @@ func NewColors() *Colors {
 
 func NewColorsWithMode(mode ThemeMode) *Colors {
 	theme := &Colors{
-		themeMode: mode,
+		themeMode:   mode,
+		surfaceTint: hex("#263238"), // Default blue-gray
 	}
 
 	// Initialize with Material Design 3 default colors
@@ -176,7 +179,8 @@ func NewColorsWithCustomAccents(primary, secondary uint32) *Colors {
 
 func NewColorsWithCustomAccentsAndMode(primary, secondary uint32, mode ThemeMode) *Colors {
 	theme := &Colors{
-		themeMode: mode,
+		themeMode:   mode,
+		surfaceTint: hex("#263238"), // Default blue-gray
 	}
 
 	// Initialize with custom colors
@@ -189,17 +193,17 @@ func NewColorsWithCustomAccentsAndMode(primary, secondary uint32, mode ThemeMode
 // Initialize default Material Design 3 palette
 func (t *Colors) initDefaultPalette() {
 	// Primary - Blue
-	t.palette.Primary50 = hex("#E3F2FD")
-	t.palette.Primary100 = hex("#BBDEFB")
-	t.palette.Primary200 = hex("#90CAF9")
-	t.palette.Primary300 = hex("#64B5F6")
-	t.palette.Primary400 = hex("#42A5F5")
-	t.palette.Primary500 = hex("#2196F3")
-	t.palette.Primary600 = hex("#1E88E5")
-	t.palette.Primary700 = hex("#1976D2")
-	t.palette.Primary800 = hex("#1565C0")
-	t.palette.Primary900 = hex("#0D47A1")
-	t.palette.Primary950 = hex("#0A3D91")
+	t.palette.Primary50 = hex("#E0F7FA")
+	t.palette.Primary100 = hex("#B2EBF2")
+	t.palette.Primary200 = hex("#80DEEA")
+	t.palette.Primary300 = hex("#4DD0E1")
+	t.palette.Primary400 = hex("#26C6DA")
+	t.palette.Primary500 = hex("#00BCD4")
+	t.palette.Primary600 = hex("#00ACC1")
+	t.palette.Primary700 = hex("#0097A7")
+	t.palette.Primary800 = hex("#00838F")
+	t.palette.Primary900 = hex("#006064")
+	t.palette.Primary950 = hex("#004D40")
 
 	// Secondary - Purple
 	t.palette.Secondary50 = hex("#F3E5F5")
@@ -460,6 +464,50 @@ func (t *Colors) InversePrimary() color.NRGBA   { return t.roles.InversePrimary 
 
 func (t *Colors) SurfaceTint() color.NRGBA { return t.roles.SurfaceTint }
 
+// Surface tint control methods
+func (t *Colors) SetSurfaceTint(tint color.NRGBA) {
+	t.surfaceTint = tint
+	t.initRoles() // Reinitialize roles to apply new tint
+}
+
+func (t *Colors) GetSurfaceTint() color.NRGBA { return t.surfaceTint }
+
+// SetSurfaceTintFromHSV sets the surface tint from HSV values
+func (t *Colors) SetSurfaceTintFromHSV(hue, saturation, value float32) *Colors {
+	// Convert HSV to RGB
+	hueDegrees := hue * 360
+	tint := t.hsvToRgb(hueDegrees, saturation, value)
+	t.SetSurfaceTint(tint)
+	return t
+}
+
+// SetSurfaceTintTone sets the tone (brightness/value) of the surface tint
+func (t *Colors) SetSurfaceTintTone(tone float32) *Colors {
+	h, s, _ := t.rgbToHsv(t.surfaceTint)
+	t.SetSurfaceTintFromHSV(h/360, s, tone)
+	return t
+}
+
+// SetSurfaceTintHue sets the hue of the surface tint
+func (t *Colors) SetSurfaceTintHue(hue float32) *Colors {
+	_, s, v := t.rgbToHsv(t.surfaceTint)
+	t.SetSurfaceTintFromHSV(hue, s, v)
+	return t
+}
+
+// SetSurfaceTintSaturation sets the saturation of the surface tint
+func (t *Colors) SetSurfaceTintSaturation(saturation float32) *Colors {
+	h, _, v := t.rgbToHsv(t.surfaceTint)
+	t.SetSurfaceTintFromHSV(h/360, saturation, v)
+	return t
+}
+
+// GetSurfaceTintHSV returns the HSV values of the current surface tint
+func (t *Colors) GetSurfaceTintHSV() (hue, saturation, value float32) {
+	h, s, v := t.rgbToHsv(t.surfaceTint)
+	return h / 360, s, v // Convert hue to 0-1 range
+}
+
 // Getters for palette colors
 func (t *Colors) Palette() ColorPalette { return t.palette }
 
@@ -495,6 +543,11 @@ func hex(s string) color.NRGBA {
 	return color.NRGBA{R: r, G: g, B: b, A: 255}
 }
 
+// ColorToHex converts a color.NRGBA to hex string format
+func ColorToHex(c color.NRGBA) string {
+	return fmt.Sprintf("#%02X%02X%02X", c.R, c.G, c.B)
+}
+
 func rgb(c uint32) color.NRGBA {
 	return argb(0xff000000 | c)
 }
@@ -522,15 +575,100 @@ func darken(c color.NRGBA, factor float64) color.NRGBA {
 	}
 }
 
-// applySurfaceTint applies a subtle tint to the surface color for contrast
+// blendColors blends two colors with a given ratio
+func (t *Colors) blendColors(base, tint color.NRGBA, ratio float64) color.NRGBA {
+	return color.NRGBA{
+		R: uint8(float64(base.R)*(1-ratio) + float64(tint.R)*ratio),
+		G: uint8(float64(base.G)*(1-ratio) + float64(tint.G)*ratio),
+		B: uint8(float64(base.B)*(1-ratio) + float64(tint.B)*ratio),
+		A: base.A,
+	}
+}
+
+// applySurfaceTint applies a custom tint to the surface color for contrast
 func (t *Colors) applySurfaceTint(baseColor color.NRGBA) color.NRGBA {
 	if t.ThemeMode() == ThemeModeLight {
-		// Light mode: make surface slightly darker (pale gray)
-		// Use Neutral100 (#F5F5F5) instead of Neutral50 (#FAFAFA)
-		return t.palette.Neutral100
+		// Light mode: use the brightness complement to work with bright white background
+		return t.invertValue(t.surfaceTint)
 	} else {
-		// Dark mode: make surface slightly lighter (dark gray)
-		// Use Neutral800 (#424242) instead of Neutral900 (#212121)
-		return t.palette.Neutral800
+		// Dark mode: use the surface tint color as-is
+		return t.surfaceTint
 	}
+}
+
+// invertValue inverts the brightness (value) of a color while preserving hue and saturation
+func (t *Colors) invertValue(c color.NRGBA) color.NRGBA {
+	// Convert RGB to HSV
+	h, s, v := t.rgbToHsv(c)
+
+	// Invert the value (brightness)
+	v = 1.0 - v
+
+	// Convert back to RGB
+	return t.hsvToRgb(h, s, v)
+}
+
+// hsvToRgb converts HSV to RGB
+func (t *Colors) hsvToRgb(h, s, v float32) color.NRGBA {
+	h = h / 360.0 // Normalize to [0, 1]
+	c := v * s
+	x := c * (1 - float32(math.Abs(float64(math.Mod(float64(h*6), 2))-1)))
+	m := v - c
+
+	var r, g, b float32
+	if h < 1.0/6.0 {
+		r, g, b = c, x, 0
+	} else if h < 2.0/6.0 {
+		r, g, b = x, c, 0
+	} else if h < 3.0/6.0 {
+		r, g, b = 0, c, x
+	} else if h < 4.0/6.0 {
+		r, g, b = 0, x, c
+	} else if h < 5.0/6.0 {
+		r, g, b = x, 0, c
+	} else {
+		r, g, b = c, 0, x
+	}
+
+	return color.NRGBA{
+		R: uint8((r + m) * 255),
+		G: uint8((g + m) * 255),
+		B: uint8((b + m) * 255),
+		A: 255,
+	}
+}
+
+// rgbToHsv converts RGB to HSV
+func (t *Colors) rgbToHsv(c color.NRGBA) (float32, float32, float32) {
+	r := float32(c.R) / 255.0
+	g := float32(c.G) / 255.0
+	b := float32(c.B) / 255.0
+
+	max := float32(math.Max(float64(r), math.Max(float64(g), float64(b))))
+	min := float32(math.Min(float64(r), math.Min(float64(g), float64(b))))
+	delta := max - min
+
+	var h float32
+	if delta == 0 {
+		h = 0
+	} else if max == r {
+		h = float32(60 * math.Mod(float64((g-b)/delta), 6))
+	} else if max == g {
+		h = 60 * ((b-r)/delta + 2)
+	} else {
+		h = 60 * ((r-g)/delta + 4)
+	}
+
+	if h < 0 {
+		h += 360
+	}
+
+	s := float32(0)
+	if max != 0 {
+		s = delta / max
+	}
+
+	v := max
+
+	return h, s, v
 }
