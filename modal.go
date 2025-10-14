@@ -1,7 +1,6 @@
 package fromage
 
 import (
-	"image"
 	"image/color"
 	"time"
 
@@ -30,7 +29,6 @@ type Modal struct {
 	isAnimating       bool      // Whether animation is in progress
 	animationStarted  bool      // Whether animation has ever been started
 	isFadingOut       bool      // Whether we're fading out (true) or fading in (false)
-	slideIn           bool      // Whether to use slide-in animation instead of fade
 }
 
 // NewModalStack creates a new modal stack
@@ -50,11 +48,6 @@ func (ms *ModalStack) ScrimDarkness(darkness float32) *ModalStack {
 
 // Push adds a new modal to the stack
 func (ms *ModalStack) Push(content W, onClose func()) {
-	ms.PushWithSlide(content, onClose, false)
-}
-
-// PushWithSlide adds a new modal to the stack with slide-in option
-func (ms *ModalStack) PushWithSlide(content W, onClose func(), slideIn bool) {
 	modal := &Modal{
 		theme:             ms.theme,
 		content:           content,
@@ -66,7 +59,6 @@ func (ms *ModalStack) PushWithSlide(content W, onClose func(), slideIn bool) {
 		isAnimating:       false,
 		animationStarted:  false,
 		isFadingOut:       false,
-		slideIn:           slideIn,
 	}
 	ms.modals = append(ms.modals, modal)
 }
@@ -159,44 +151,20 @@ func (ms *ModalStack) Layout(gtx C) D {
 			}),
 			// Second layer: Layout the modal content at the top
 			layout.Stacked(func(gtx C) D {
-				if modal.slideIn {
-					// For slide-in animation, we need to transform the content position
-					// Apply opacity to the content (same as fade animation)
-					defer paint.PushOpacity(gtx.Ops, progress).Pop()
+				// Apply fade animation opacity to the content
+				defer paint.PushOpacity(gtx.Ops, progress).Pop()
 
-					// Calculate the transform offset for slide animation
-					// Use a fixed slide distance for consistent animation
-					slideDistance := 300 // pixels
+				// Layout the modal content at the top, full width
+				return layout.NW.Layout(gtx, func(gtx C) D {
+					// Constrain to full width
+					gtx.Constraints.Min.X = gtx.Constraints.Max.X
 
-					var offsetY int
-					if modal.isFadingOut {
-						// During slide-out, move content up off-screen
-						offsetY = -int(float32(slideDistance) * (1.0 - progress))
-					} else {
-						// During slide-in, move content from above screen to final position
-						offsetY = -int(float32(slideDistance) * (1.0 - progress))
-					}
-
-					// Apply transform to move the content vertically
-					defer op.Offset(image.Point{X: 0, Y: offsetY}).Push(gtx.Ops).Pop()
-
-					// Layout the modal content at the top, full width
-					return layout.NW.Layout(gtx, func(gtx C) D {
-						// Constrain to full width
-						gtx.Constraints.Min.X = gtx.Constraints.Max.X
+					// Create a clickable area for the modal content to prevent clicks from reaching the scrim
+					contentClickable := &widget.Clickable{}
+					return contentClickable.Layout(gtx, func(gtx C) D {
 						return modal.content(gtx)
 					})
-				} else {
-					// Apply fade-in opacity to the content
-					defer paint.PushOpacity(gtx.Ops, progress).Pop()
-
-					// Layout the modal content at the top, full width
-					return layout.NW.Layout(gtx, func(gtx C) D {
-						// Constrain to full width
-						gtx.Constraints.Min.X = gtx.Constraints.Max.X
-						return modal.content(gtx)
-					})
-				}
+				})
 			}),
 		)
 

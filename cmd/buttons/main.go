@@ -34,11 +34,12 @@ var (
 
 // Application state struct to hold persistent widgets
 type AppState struct {
-	switchWidget  *fromage.Bool
-	colorSelector *fromage.ColorSelector
-	checkbox      *fromage.Checkbox
-	modalStack    *fromage.ModalStack
-	slideInCheck  *fromage.Checkbox
+	switchWidget    *fromage.Bool
+	colorSelector   *fromage.ColorSelector
+	checkbox        *fromage.Checkbox
+	modalStack      *fromage.ModalStack
+	verticalRadio   *fromage.RadioButtonGroup
+	horizontalRadio *fromage.RadioButtonGroup
 }
 
 var appState *AppState
@@ -51,6 +52,8 @@ func main() {
 		unit.Dp(16),
 		fromage.ThemeModeDark,
 	)
+
+	w := fromage.NewWindow(th)
 
 	// Initialize application state with persistent widgets
 	appState = &AppState{
@@ -66,16 +69,25 @@ func main() {
 			log.I.F("[HOOK] Checkbox toggled to: %v", b)
 		}),
 		modalStack: th.NewModalStack().ScrimDarkness(0.7), // 70% opacity scrim
-		slideInCheck: th.NewCheckbox(false).SetOnChange(func(b bool) {
-			log.I.F("[HOOK] Slide-in checkbox toggled to: %v", b)
-		}),
+		verticalRadio: w.VerticalRadioGroup().
+			AddButton("Option A", true).
+			AddButton("Option B", false).
+			AddButton("Option C", false).
+			SetOnChange(func(index int, label string) {
+				log.I.F("[HOOK] Vertical radio selected: %d - %s", index, label)
+			}),
+		horizontalRadio: w.HorizontalRadioGroup().
+			AddButton("Red", false).
+			AddButton("Green", true).
+			AddButton("Blue", false).
+			SetOnChange(func(index int, label string) {
+				log.I.F("[HOOK] Horizontal radio selected: %d - %s", index, label)
+			}),
 	}
 
 	// Initialize the color selector with the current surface tint
 	currentSurfaceTint := th.Colors.GetSurfaceTint()
 	appState.colorSelector.SetColor(currentSurfaceTint)
-
-	w := fromage.NewWindow(th)
 	w.Option(app.Size(
 		unit.Dp(800), unit.Dp(800)),
 		app.Title("Kitchensink - Theme Demo"),
@@ -86,6 +98,8 @@ func main() {
 func loop(w *app.Window, th *fromage.Theme) func() {
 	return func() {
 		var ops op.Ops
+		// Create a fromage window wrapper
+		fromageWindow := &fromage.Window{Window: w, Theme: th}
 		for {
 			switch e := w.Event().(type) {
 			case app.DestroyEvent:
@@ -94,7 +108,7 @@ func loop(w *app.Window, th *fromage.Theme) func() {
 			case app.FrameEvent:
 				gtx := app.NewContext(&ops, e)
 				th.Pool.Reset() // Reset pool at the beginning of each frame
-				mainUI(gtx, th)
+				mainUI(gtx, th, fromageWindow)
 				e.Frame(gtx.Ops)
 			}
 		}
@@ -154,14 +168,13 @@ This modal demonstrates:
 		).CornerRadius(8).Padding(unit.Dp(16)).Layout(g)
 	}
 
-	// Push the modal to the stack with slide-in option
-	slideIn := appState.slideInCheck.GetValue()
-	appState.modalStack.PushWithSlide(modalContent, func() {
+	// Push the modal to the stack
+	appState.modalStack.Push(modalContent, func() {
 		appState.modalStack.Pop()
-	}, slideIn)
+	})
 }
 
-func mainUI(gtx layout.Context, th *fromage.Theme) {
+func mainUI(gtx layout.Context, th *fromage.Theme, w *fromage.Window) {
 	// Fill background with theme background color
 	paint.Fill(gtx.Ops, th.Colors.Background())
 
@@ -448,6 +461,40 @@ func mainUI(gtx layout.Context, th *fromage.Theme) {
 			return btn.Layout(g)
 		}).
 		Rigid(func(g C) D {
+			// Radio button showcase - Vertical (moved up for better visibility)
+			return w.Inset(0.5, func(g C) D {
+				return th.VFlex().
+					SpaceEvenly().
+					Rigid(func(g C) D {
+						return th.Caption("Radio Buttons - Vertical").
+							Color(th.Colors.OnBackground()).
+							Alignment(text.Middle).
+							Layout(g)
+					}).
+					Rigid(func(g C) D {
+						return appState.verticalRadio.Layout(g)
+					}).
+					Layout(g)
+			}).Fn(g)
+		}).
+		Rigid(func(g C) D {
+			// Radio button showcase - Horizontal (moved up for better visibility)
+			return w.Inset(0.5, func(g C) D {
+				return th.VFlex().
+					SpaceEvenly().
+					Rigid(func(g C) D {
+						return th.Caption("Radio Buttons - Horizontal").
+							Color(th.Colors.OnBackground()).
+							Alignment(text.Middle).
+							Layout(g)
+					}).
+					Rigid(func(g C) D {
+						return appState.horizontalRadio.Layout(g)
+					}).
+					Layout(g)
+			}).Fn(g)
+		}).
+		Rigid(func(g C) D {
 			// Color selector for surface tint
 			return th.VFlex().
 				SpaceEvenly().
@@ -526,11 +573,6 @@ func mainUI(gtx layout.Context, th *fromage.Theme) {
 						showModal(th)
 					}
 					return btn.Layout(g)
-				}).
-				Rigid(func(g C) D {
-					// Slide-in checkbox
-					slideInCheckbox := appState.slideInCheck.Label("Slide in")
-					return slideInCheckbox.Layout(g)
 				}).
 				Layout(g)
 		}).

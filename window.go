@@ -13,3 +13,10 @@ type Window struct {
 func NewWindow(th *Theme) *Window {
 	return &Window{Window: &app.Window{}, Theme: th}
 }
+
+// Invalidate requests a new frame to be drawn
+func (w *Window) Invalidate() {
+	if w.Window != nil {
+		w.Window.Invalidate()
+	}
+}
