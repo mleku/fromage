@@ -3,8 +3,9 @@ package fromage
 import (
 	"image"
 	"image/color"
-	"log"
 	"math"
+
+	"lol.mleku.dev/log"
 
 	"gioui.org/io/semantic"
 	"gioui.org/layout"
@@ -96,7 +97,7 @@ func (b *ButtonLayout) OnClick(handler func()) *ButtonLayout {
 func (b *ButtonLayout) Clicked(g C) bool {
 	clicked := b.clickable.Clicked(g)
 	if clicked {
-		log.Printf("[TRACE] Button clicked at position: %v", g.Now)
+		log.I.F("[TRACE] Button clicked at position: %v", g.Now)
 	}
 	return clicked
 }

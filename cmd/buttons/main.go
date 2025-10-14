@@ -30,6 +30,16 @@ var (
 	settingsIcon = icons.ActionSettings
 )
 
+// Application state struct to hold persistent widgets
+type AppState struct {
+	primaryBool   *fromage.Bool
+	secondaryBool *fromage.Bool
+	checkbox      *fromage.Bool
+	switchWidget  *fromage.Bool
+}
+
+var appState *AppState
+
 func main() {
 	th := fromage.NewThemeWithMode(
 		context.Background(),
@@ -38,6 +48,23 @@ func main() {
 		unit.Dp(16),
 		fromage.ThemeModeDark,
 	)
+
+	// Initialize application state with persistent widgets
+	appState = &AppState{
+		primaryBool: th.PrimaryBool(false).SetOnChange(func(b bool) {
+			log.I.F("[HOOK] Primary bool toggled to: %v", b)
+		}),
+		secondaryBool: th.SecondaryBool(true).SetOnChange(func(b bool) {
+			log.I.F("[HOOK] Secondary bool toggled to: %v", b)
+		}),
+		checkbox: th.Checkbox(false).SetOnChange(func(b bool) {
+			log.I.F("[HOOK] Checkbox toggled to: %v", b)
+		}),
+		switchWidget: th.Switch(true).SetOnChange(func(b bool) {
+			log.I.F("[HOOK] Switch toggled to: %v", b)
+		}),
+	}
+
 	w := fromage.NewWindow(th)
 	w.Option(app.Size(
 		unit.Dp(800), unit.Dp(450)),
@@ -356,6 +383,76 @@ func mainUI(gtx layout.Context, th *fromage.Theme) {
 			).Disabled(true) // This button is disabled
 
 			return btn.Layout(g)
+		}).
+		Rigid(func(g C) D {
+			// Boolean widgets showcase in horizontal flex with labels underneath
+			return th.HFlex().
+				SpaceEvenly().
+				Rigid(func(g C) D {
+					// Primary boolean widget with label
+					return th.VFlex().
+						SpaceEvenly().
+						Rigid(func(g C) D {
+							// Let the bool widget handle its own clicks
+							return appState.primaryBool.Layout(g)
+						}).
+						Rigid(func(g C) D {
+							return th.Caption("Primary Bool").
+								Color(th.Colors.OnBackground()).
+								Alignment(text.Middle).
+								Layout(g)
+						}).
+						Layout(g)
+				}).
+				Rigid(func(g C) D {
+					// Secondary boolean widget with label
+					return th.VFlex().
+						SpaceEvenly().
+						Rigid(func(g C) D {
+							// Let the bool widget handle its own clicks
+							return appState.secondaryBool.Layout(g)
+						}).
+						Rigid(func(g C) D {
+							return th.Caption("Secondary Bool").
+								Color(th.Colors.OnBackground()).
+								Alignment(text.Middle).
+								Layout(g)
+						}).
+						Layout(g)
+				}).
+				Rigid(func(g C) D {
+					// Checkbox widget with label
+					return th.VFlex().
+						SpaceEvenly().
+						Rigid(func(g C) D {
+							// Let the bool widget handle its own clicks
+							return appState.checkbox.Layout(g)
+						}).
+						Rigid(func(g C) D {
+							return th.Caption("Checkbox").
+								Color(th.Colors.OnBackground()).
+								Alignment(text.Middle).
+								Layout(g)
+						}).
+						Layout(g)
+				}).
+				Rigid(func(g C) D {
+					// Switch widget with label
+					return th.VFlex().
+						SpaceEvenly().
+						Rigid(func(g C) D {
+							// Let the bool widget handle its own clicks
+							return appState.switchWidget.Layout(g)
+						}).
+						Rigid(func(g C) D {
+							return th.Caption("Switch").
+								Color(th.Colors.OnBackground()).
+								Alignment(text.Middle).
+								Layout(g)
+						}).
+						Layout(g)
+				}).
+				Layout(g)
 		}).
 		Layout(gtx)
 }
