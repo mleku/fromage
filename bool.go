@@ -3,6 +3,7 @@ package fromage
 import (
 	"image"
 	"image/color"
+	"time"
 
 	"gioui.org/io/semantic"
 	"gioui.org/op"
@@ -36,7 +37,14 @@ type Bool struct {
 	height    unit.Dp // Height of the switch track
 	thumbSize unit.Dp // Size of the thumb circle
 	// Animation state
-	animationProgress float32 // 0.0 = off, 1.0 = on
+	animationProgress float32   // 0.0 = off, 1.0 = on
+	animationStart    time.Time // When the current animation started
+	isAnimating       bool      // Whether an animation is currently in progress
+	// Color transition state
+	colorTransitionStart time.Time   // When color transition started
+	isColorTransitioning bool        // Whether color transition is in progress
+	oldBackground        color.NRGBA // Previous background color
+	oldForeground        color.NRGBA // Previous foreground color
 }
 
 // NewBool creates a new boolean widget with its own dedicated clickable
@@ -47,18 +55,24 @@ func (t *Theme) NewBool(value bool) *Bool {
 	thumbSize := unit.Dp(16) // Thumb circle size
 
 	return &Bool{
-		theme:             t,
-		value:             value,
-		clickable:         &widget.Clickable{}, // Each bool gets its own dedicated clickable
-		changed:           false,
-		onChange:          func(b bool) {},
-		background:        color.NRGBA{R: 128, G: 128, B: 128, A: 255}, // Dim gray for off state
-		foreground:        t.Colors.Surface(),                          // White thumb
-		cornerRadius:      unit.Dp(10),                                 // Half of height for pill shape
-		width:             width,
-		height:            height,
-		thumbSize:         thumbSize,
-		animationProgress: 0.0,
+		theme:                t,
+		value:                value,
+		clickable:            &widget.Clickable{}, // Each bool gets its own dedicated clickable
+		changed:              false,
+		onChange:             func(b bool) {},
+		background:           color.NRGBA{R: 128, G: 128, B: 128, A: 255}, // Dim gray for off state
+		foreground:           t.Colors.Surface(),                          // White thumb
+		cornerRadius:         unit.Dp(10),                                 // Half of height for pill shape
+		width:                width,
+		height:               height,
+		thumbSize:            thumbSize,
+		animationProgress:    0.0,
+		animationStart:       time.Time{},
+		isAnimating:          false,
+		colorTransitionStart: time.Time{},
+		isColorTransitioning: false,
+		oldBackground:        color.NRGBA{R: 128, G: 128, B: 128, A: 255},
+		oldForeground:        t.Colors.Surface(),
 	}
 }
 
@@ -158,18 +172,15 @@ func (b *Bool) Layout(g C) D {
 		if b.onChange != nil {
 			b.onChange(b.value)
 		}
+		// Start animation when value changes
+		b.startAnimation(g.Now)
 	}
 
-	// Update animation progress
-	if b.value {
-		if b.animationProgress < 1.0 {
-			b.animationProgress = minFloat32(1.0, b.animationProgress+0.1) // Smooth animation
-		}
-	} else {
-		if b.animationProgress > 0.0 {
-			b.animationProgress = maxFloat32(0.0, b.animationProgress-0.1) // Smooth animation
-		}
-	}
+	// Update animation progress based on time
+	b.updateAnimation(g)
+
+	// Update color transition progress based on time
+	b.updateColorTransition(g)
 
 	// Calculate dimensions
 	width := g.Dp(b.width)
@@ -252,6 +263,111 @@ func (b *Bool) drawThumb(g C, size image.Point, thumbSize int) {
 	// Draw thumb circle
 	defer clip.Ellipse(thumbRect).Push(g.Ops).Pop()
 	paint.Fill(g.Ops, b.foreground)
+}
+
+// startAnimation begins a new animation
+func (b *Bool) startAnimation(now time.Time) {
+	b.animationStart = now
+	b.isAnimating = true
+}
+
+// startColorTransition begins a color transition animation
+func (b *Bool) startColorTransition(now time.Time) {
+	b.oldBackground = b.background
+	b.oldForeground = b.foreground
+	b.colorTransitionStart = now
+	b.isColorTransitioning = true
+}
+
+// updateAnimation updates the animation progress based on elapsed time
+func (b *Bool) updateAnimation(g C) {
+	if !b.isAnimating {
+		return
+	}
+
+	const animationDuration = 250 * time.Millisecond
+	elapsed := g.Now.Sub(b.animationStart)
+
+	if elapsed >= animationDuration {
+		// Animation complete
+		if b.value {
+			b.animationProgress = 1.0
+		} else {
+			b.animationProgress = 0.0
+		}
+		b.isAnimating = false
+		return
+	}
+
+	// Calculate progress (0.0 to 1.0)
+	progress := float32(elapsed) / float32(animationDuration)
+
+	// Apply easing function (ease-out for smooth deceleration)
+	progress = 1.0 - (1.0-progress)*(1.0-progress)
+
+	if b.value {
+		// Animating to ON state (0.0 -> 1.0)
+		b.animationProgress = progress
+	} else {
+		// Animating to OFF state (1.0 -> 0.0)
+		b.animationProgress = 1.0 - progress
+	}
+
+	// Request invalidation to continue animation
+	g.Execute(op.InvalidateCmd{})
+}
+
+// updateColorTransition updates the color transition progress based on elapsed time
+func (b *Bool) updateColorTransition(g C) {
+	if !b.isColorTransitioning {
+		return
+	}
+
+	const colorTransitionDuration = 250 * time.Millisecond
+	elapsed := g.Now.Sub(b.colorTransitionStart)
+
+	if elapsed >= colorTransitionDuration {
+		// Color transition complete
+		b.isColorTransitioning = false
+		return
+	}
+
+	// Calculate progress (0.0 to 1.0)
+	progress := float32(elapsed) / float32(colorTransitionDuration)
+
+	// Apply easing function (ease-out for smooth deceleration)
+	progress = 1.0 - (1.0-progress)*(1.0-progress)
+
+	// Interpolate colors
+	b.background = b.interpolateColor(b.oldBackground, b.background, progress)
+	b.foreground = b.interpolateColor(b.oldForeground, b.foreground, progress)
+
+	// Request invalidation to continue color transition
+	g.Execute(op.InvalidateCmd{})
+}
+
+// interpolateColor interpolates between two colors based on progress (0.0 to 1.0)
+func (b *Bool) interpolateColor(from, to color.NRGBA, progress float32) color.NRGBA {
+	return color.NRGBA{
+		R: uint8(float32(from.R) + (float32(to.R)-float32(from.R))*progress),
+		G: uint8(float32(from.G) + (float32(to.G)-float32(from.G))*progress),
+		B: uint8(float32(from.B) + (float32(to.B)-float32(from.B))*progress),
+		A: uint8(float32(from.A) + (float32(to.A)-float32(from.A))*progress),
+	}
+}
+
+// UpdateThemeColors updates the switch colors to match the current theme and starts color transition
+func (b *Bool) UpdateThemeColors(now time.Time) {
+	// Store current colors as old colors for transition
+	b.oldBackground = b.background
+	b.oldForeground = b.foreground
+
+	// Update to new theme colors
+	b.background = color.NRGBA{R: 128, G: 128, B: 128, A: 255} // Dim gray for off state
+	b.foreground = b.theme.Colors.Surface()                    // White thumb
+
+	// Start color transition
+	b.startColorTransition(now)
 }
 
 // hoveredColor lightens the color for hover effect

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"time"
 
 	"gioui.org/app"
 	"gioui.org/font/gofont"
@@ -45,6 +46,8 @@ func main() {
 			} else {
 				th.SetThemeMode(fromage.ThemeModeLight)
 			}
+			// Trigger color transition for the switch itself
+			appState.themeToggle.UpdateThemeColors(time.Now())
 		}),
 	}
 

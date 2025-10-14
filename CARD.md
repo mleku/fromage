@@ -69,9 +69,10 @@ All text elements automatically use the appropriate "on-background" colors to en
 
 The theme toggle uses a Material Design switch with the following features:
 - **Pill-shaped track**: Rounded rectangle background
-- **Animated thumb**: Circle that slides from left (off) to right (on)
+- **Animated thumb**: Circle that slides from left (off) to right (on) in exactly 250ms
 - **Color transitions**: Track changes from dim gray (off) to primary color (on)
-- **Smooth animations**: Thumb position and track color animate smoothly
+- **Theme color transitions**: All switch colors smoothly transition over 250ms when theme changes
+- **Smooth animations**: Thumb position and track color animate smoothly with ease-out timing
 - **Masked touch feedback**: Ink effects are constrained to the switch track area
 - **Customizable colors**: Can set arbitrary background colors for the track
 
@@ -89,6 +90,9 @@ switch := theme.Switch(false).
     Width(unit.Dp(40)).
     Height(unit.Dp(24)).
     ThumbSize(unit.Dp(20))
+
+// Update switch colors for theme changes (triggers 250ms transition)
+switch.UpdateThemeColors(time.Now())
 ```
 
 ## Demo
@@ -106,7 +110,8 @@ The demo includes:
 - Cards with titles
 - Custom colored cards
 - Real-time theme switching with full background color changes
-- Smooth animations when toggling the switch
+- Precise 250ms thumb animation with ease-out timing
+- Smooth 250ms color transitions when switching themes
 - Masked touch ink effects for precise interactive feedback
 
 ## API Reference
