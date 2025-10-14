@@ -4,7 +4,6 @@ import (
 	"image/color"
 
 	"gioui.org/font"
-	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/paint"
 	"gioui.org/text"
@@ -89,7 +88,7 @@ func (l *Label) TextScale(scale float32) *Label {
 }
 
 // Layout renders the label
-func (l *Label) Layout(gtx layout.Context) layout.Dimensions {
+func (l *Label) Layout(g C) D {
 	// Create the underlying Gio label
 	label := widget.Label{
 		Alignment: l.alignment,
@@ -97,12 +96,12 @@ func (l *Label) Layout(gtx layout.Context) layout.Dimensions {
 	}
 
 	// Record color operation
-	textColorMacro := op.Record(gtx.Ops)
-	paint.ColorOp{Color: l.color}.Add(gtx.Ops)
+	textColorMacro := op.Record(g.Ops)
+	paint.ColorOp{Color: l.color}.Add(g.Ops)
 	textColor := textColorMacro.Stop()
 
 	// Layout the label
-	return label.Layout(gtx, l.shaper, l.font, l.textSize, l.text, textColor)
+	return label.Layout(g, l.shaper, l.font, l.textSize, l.text, textColor)
 }
 
 // Convenience methods for common text styles
