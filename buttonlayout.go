@@ -35,6 +35,8 @@ type ButtonLayout struct {
 	disabled bool
 	// Click handler
 	onClick func()
+	// Disable inking effect
+	disableInking bool
 }
 
 // NewButtonLayout creates a new button layout
@@ -90,6 +92,12 @@ func (b *ButtonLayout) Disabled(disabled bool) *ButtonLayout {
 // OnClick sets the click handler
 func (b *ButtonLayout) OnClick(handler func()) *ButtonLayout {
 	b.onClick = handler
+	return b
+}
+
+// DisableInking disables the ink animation effect
+func (b *ButtonLayout) DisableInking(disable bool) *ButtonLayout {
+	b.disableInking = disable
 	return b
 }
 
@@ -191,9 +199,11 @@ func (b *ButtonLayout) drawBackground(g C, size image.Point) D {
 	defer rrect.Push(g.Ops).Pop()
 	paint.Fill(g.Ops, bgColor)
 
-	// Draw ink animations for press history
-	for _, press := range b.clickable.History() {
-		b.drawInk(g, press, size)
+	// Draw ink animations for press history (unless disabled)
+	if !b.disableInking {
+		for _, press := range b.clickable.History() {
+			b.drawInk(g, press, size)
+		}
 	}
 
 	return D{Size: size}

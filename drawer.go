@@ -30,7 +30,6 @@ type Drawer struct {
 	position          DrawerPosition
 	width             unit.Dp
 	height            unit.Dp
-	scrimClickable    *widget.Clickable
 	onClose           func()
 	blocking          bool
 	animationProgress float32   // 0.0 = invisible, 1.0 = fully visible
@@ -48,7 +47,6 @@ func (w *Window) NewDrawer() *Drawer {
 		position:          DrawerLeft,
 		width:             unit.Dp(280), // Default width for left/right drawers
 		height:            unit.Dp(200), // Default height for top/bottom drawers
-		scrimClickable:    w.Theme.Pool.GetClickable(),
 		blocking:          true,
 		animationProgress: 0.0,
 		animationStart:    time.Time{},
@@ -162,24 +160,32 @@ func (d *Drawer) Layout(gtx C) D {
 	return layout.Stack{}.Layout(gtx,
 		// First layer: Fill entire screen with scrim and handle clicks
 		layout.Expanded(func(gtx C) D {
-			// Fill with scrim color
-			paint.Fill(gtx.Ops, scrimColor)
+			// Create a scrim button that fills the entire space
+			scrimBtn := d.Theme.NewButtonLayout().
+				Background(scrimColor).
+				DisableInking(true).
+				OnClick(func() {
+					if d.onClose != nil {
+						d.onClose()
+					} else {
+						d.Hide()
+						// Trigger invalidation to start the animation
+						gtx.Execute(op.InvalidateCmd{})
+					}
+				}).
+				Widget(func(gtx C) D {
+					// Fill the entire available space
+					return layout.Dimensions{Size: gtx.Constraints.Max}
+				})
 
-			// Layout clickable area over the entire scrim
-			d.scrimClickable.Layout(gtx, func(gtx C) D {
-				return layout.Dimensions{Size: gtx.Constraints.Max}
-			})
-
-			// Handle scrim clicks (click outside to close)
-			if d.scrimClickable.Clicked(gtx) {
-				if d.onClose != nil {
-					d.onClose()
-				} else {
-					d.Hide()
-				}
+			// Check for clicks and layout the button (same pattern as TextButton)
+			if scrimBtn.Clicked(gtx) {
+				d.Hide()
+				// Trigger invalidation to start the animation
+				gtx.Execute(op.InvalidateCmd{})
+				// Click handling is done in OnClick callback
 			}
-
-			return layout.Dimensions{Size: gtx.Constraints.Max}
+			return scrimBtn.Layout(gtx)
 		}),
 		// Second layer: Layout the drawer content
 		layout.Stacked(func(gtx C) D {
@@ -194,7 +200,7 @@ func (d *Drawer) Layout(gtx C) D {
 
 			// Create a clickable area for the drawer content to prevent clicks from reaching the scrim
 			contentClickable := &widget.Clickable{}
-			return contentClickable.Layout(gtx, func(gtx C) D {
+			contentDims := contentClickable.Layout(gtx, func(gtx C) D {
 				// Fill drawer background
 				paint.Fill(gtx.Ops, d.Theme.Colors.Surface())
 
@@ -206,6 +212,14 @@ func (d *Drawer) Layout(gtx C) D {
 					Color(d.Theme.Colors.OnSurface()).
 					Layout(gtx)
 			})
+
+			// Consume any clicks on the content area to prevent them from reaching the scrim
+			// This is important - we need to actually check for clicks to consume them
+			if contentClickable.Clicked(gtx) {
+				// Content was clicked - do nothing, just consume the event
+			}
+
+			return contentDims
 		}),
 	)
 }
