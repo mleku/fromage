@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"math"
 
 	"gioui.org/app"
 	"gioui.org/font/gofont"
@@ -27,6 +28,32 @@ type (
 	C = fromage.C
 	D = fromage.D
 	W = fromage.W
+)
+
+// Physics configuration - tune these values to adjust motion behavior
+var (
+	// Mass affects how much impulse is needed to achieve the same velocity
+	// Higher mass = more impulse needed = less responsive feeling
+	// Lower mass = less impulse needed = more responsive feeling
+	// Range: 0.1 (very responsive) to 10.0 (very sluggish)
+	// Reduced by 1000x for much lighter viewport
+	PhysicsMass float32 = 0.001
+
+	// Impulse strength per scroll event (pixels per second)
+	// This is the base impulse before mass is applied
+	// Quadrupled for 4x faster velocity, then 4x more for 4x scroll distance, then 100x more
+	BaseImpulseStrength float32 = 160000.0
+
+	// Mouse scroll energy multiplier - makes mouse scrolling more powerful
+	// Higher values = more energy per mouse scroll event
+	// Range: 1.0 (same as keyboard) to 10.0 (very powerful)
+	MouseScrollMultiplier float32 = 3.0
+
+	// Momentum mass - affects how long motion continues after input stops
+	// Higher values = longer momentum, more continuous motion
+	// Lower values = motion stops more quickly
+	// Range: 0.1 (stops quickly) to 10.0 (very long momentum)
+	MomentumMass float32 = 5.0
 )
 
 // RedCornerOutline creates a widget that draws a red 1px square corner outline
@@ -174,6 +201,25 @@ func loop(w *app.Window, th *fromage.Theme, window *fromage.Window) func() {
 	var horizontalPos float32 = 0.0
 	var verticalPos float32 = 0.0
 
+	// Physics state for inertial scrolling
+	var physicsState struct {
+		// Velocity in pixels per second
+		velocityX, velocityY float32
+		// Position in pixels (for smooth interpolation)
+		positionX, positionY float32
+		// Friction coefficient (0.95 = 5% energy loss per frame at 60fps)
+		friction float32
+		// Maximum speed in pixels per second
+		maxSpeed float32
+		// Bounce energy retention (0.5 = 50%)
+		bounceRetention float32
+	}
+
+	// Initialize physics parameters
+	physicsState.friction = 0.9999 // Much lower energy loss for longer momentum
+	physicsState.maxSpeed = 5000.0
+	physicsState.bounceRetention = 0.5
+
 	// Keyboard event flags for direct scrolling
 	var keyUpPressed, keyDownPressed, keyLeftPressed, keyRightPressed bool
 
@@ -230,15 +276,10 @@ func loop(w *app.Window, th *fromage.Theme, window *fromage.Window) func() {
 				}
 				area.Pop()
 
-				mainUI(gtx, th, window, horizontalScrollbar, verticalScrollbar, testButton, modalStack, &scrollGesture, pointerTag, gestureTag, &horizontalPos, &verticalPos, &keyUpPressed, &keyDownPressed, &keyLeftPressed, &keyRightPressed)
+				mainUI(gtx, th, window, horizontalScrollbar, verticalScrollbar, testButton, modalStack, &scrollGesture, pointerTag, gestureTag, &horizontalPos, &verticalPos, &keyUpPressed, &keyDownPressed, &keyLeftPressed, &keyRightPressed, &physicsState)
 
-				// Update scrollbar positions if they changed (after processing animations)
-				if horizontalScrollbar.Changed() {
-					horizontalPos = horizontalScrollbar.Position()
-				}
-				if verticalScrollbar.Changed() {
-					verticalPos = verticalScrollbar.Position()
-				}
+				// Note: Scrollbar positions are now controlled by physics system
+				// No need to update from scrollbar changes since physics sets them directly
 				e.Frame(gtx.Ops)
 			}
 		}
@@ -249,7 +290,14 @@ func mainUI(gtx layout.Context, th *fromage.Theme, window *fromage.Window,
 	horizontalScrollbar, verticalScrollbar *fromage.Scrollbar,
 	testButton *fromage.ButtonLayout, modalStack *fromage.ModalStack,
 	scrollGesture *gesture.Scroll, pointerTag, gestureTag interface{},
-	horizontalPos, verticalPos *float32, keyUpPressed, keyDownPressed, keyLeftPressed, keyRightPressed *bool) {
+	horizontalPos, verticalPos *float32, keyUpPressed, keyDownPressed, keyLeftPressed, keyRightPressed *bool,
+	physicsState *struct {
+		velocityX, velocityY float32
+		positionX, positionY float32
+		friction             float32
+		maxSpeed             float32
+		bounceRetention      float32
+	}) {
 
 	// Fill background with theme background color
 	th.FillBackground(nil).Layout(gtx)
@@ -361,7 +409,7 @@ func mainUI(gtx layout.Context, th *fromage.Theme, window *fromage.Window,
 		}).
 		Layout(gtx)
 
-	// Handle scroll events - direct 10% jumps
+	// Physics-based inertial scrolling
 	scrollableWidth := contentSize - contentAreaWidth
 	scrollableHeight := contentSize - contentAreaHeight
 
@@ -374,170 +422,211 @@ func mainUI(gtx layout.Context, th *fromage.Theme, window *fromage.Window,
 	verticalScrollDistance := scrollGesture.Update(gtx.Metric, gtx.Source, gtx.Now, gesture.Vertical, xrange, yrange)
 	horizontalScrollDistance := scrollGesture.Update(gtx.Metric, gtx.Source, gtx.Now, gesture.Horizontal, xrange, yrange)
 
-	// Handle vertical scroll input - direct 10% viewport movements
+	// Convert scroll events to impulse (velocity changes)
+	// Apply mass to the base impulse: higher mass = less effective impulse
+	// Mouse scroll gets extra energy multiplier for faster scrolling
+	// Mouse scroll mass effect is divided by 10000 for extremely light inertia
+	mouseImpulseStrength := (BaseImpulseStrength * MouseScrollMultiplier) / (PhysicsMass / 10000.0)
+	keyboardImpulseStrength := BaseImpulseStrength / PhysicsMass
+
 	if verticalScrollDistance != 0 {
 		fmt.Printf("Vertical scroll distance: %d\n", verticalScrollDistance)
-
 		if scrollableHeight > 0 {
-			// Calculate position change for 10% of visible viewport height
-			viewportHeight := contentAreaHeight
-			scrollDistancePixels := float32(viewportHeight) * 0.1 // 10% of viewport height
-			positionChange := scrollDistancePixels / float32(scrollableHeight)
-
-			// Determine scroll direction and apply directly
-			var newPos float32
+			var impulse float32
 			if verticalScrollDistance > 0 {
-				// Scroll down - move content up (increase position)
-				newPos = *verticalPos + positionChange
-				fmt.Println("Scroll DOWN - moving content up")
+				// Scroll down - add upward impulse
+				impulse = mouseImpulseStrength
+				fmt.Println("Scroll DOWN - adding upward impulse")
 			} else {
-				// Scroll up - move content down (decrease position)
-				newPos = *verticalPos - positionChange
-				fmt.Println("Scroll UP - moving content down")
+				// Scroll up - add downward impulse
+				impulse = -mouseImpulseStrength
+				fmt.Println("Scroll UP - adding downward impulse")
 			}
-
-			// Clamp to valid range
-			if newPos < 0.0 {
-				newPos = 0.0
-			} else if newPos > 1.0 {
-				newPos = 1.0
-			}
-
-			// Apply the change directly
-			*verticalPos = newPos
-			verticalScrollbar.SetPosition(newPos)
-			fmt.Printf("New vertical position: %.3f\n", newPos)
+			physicsState.velocityY += impulse
+			fmt.Printf("New vertical velocity: %.1f px/s (mouse: %.1f)\n", physicsState.velocityY, mouseImpulseStrength)
 		}
 	}
 
-	// Handle horizontal scroll input - direct 10% viewport movements
 	if horizontalScrollDistance != 0 {
 		fmt.Printf("Horizontal scroll distance: %d\n", horizontalScrollDistance)
-
 		if scrollableWidth > 0 {
-			// Calculate position change for 10% of visible viewport width
-			viewportWidth := contentAreaWidth
-			scrollDistancePixels := float32(viewportWidth) * 0.1 // 10% of viewport width
-			positionChange := scrollDistancePixels / float32(scrollableWidth)
-
-			// Determine scroll direction and apply directly
-			var newPos float32
+			var impulse float32
 			if horizontalScrollDistance > 0 {
-				// Scroll right - move content left (increase position)
-				newPos = *horizontalPos + positionChange
-				fmt.Println("Scroll RIGHT - moving content left")
+				// Scroll right - add leftward impulse
+				impulse = mouseImpulseStrength
+				fmt.Println("Scroll RIGHT - adding leftward impulse")
 			} else {
-				// Scroll left - move content right (decrease position)
-				newPos = *horizontalPos - positionChange
-				fmt.Println("Scroll LEFT - moving content right")
+				// Scroll left - add rightward impulse
+				impulse = -mouseImpulseStrength
+				fmt.Println("Scroll LEFT - adding rightward impulse")
 			}
-
-			// Clamp to valid range
-			if newPos < 0.0 {
-				newPos = 0.0
-			} else if newPos > 1.0 {
-				newPos = 1.0
-			}
-
-			// Apply the change directly
-			*horizontalPos = newPos
-			horizontalScrollbar.SetPosition(newPos)
-			fmt.Printf("New horizontal position: %.3f\n", newPos)
+			physicsState.velocityX += impulse
+			fmt.Printf("New horizontal velocity: %.1f px/s (mouse: %.1f)\n", physicsState.velocityX, mouseImpulseStrength)
 		}
 	}
 
-	// Handle keyboard events - direct 10% jumps
+	// Handle keyboard events - add impulse to physics
 	if *keyUpPressed {
 		*keyUpPressed = false // Reset flag
 		if scrollableHeight > 0 {
-			// Calculate position change for 10% of visible viewport height
-			viewportHeight := contentAreaHeight
-			scrollDistancePixels := float32(viewportHeight) * 0.1 // 10% of viewport height
-			positionChange := scrollDistancePixels / float32(scrollableHeight)
-
-			// Up arrow - move content down (decrease position)
-			newPos := *verticalPos - positionChange
-
-			// Clamp to valid range
-			if newPos < 0.0 {
-				newPos = 0.0
-			}
-
-			// Apply the change directly
-			*verticalPos = newPos
-			verticalScrollbar.SetPosition(newPos)
-			fmt.Printf("UP ARROW: New vertical position: %.3f\n", newPos)
+			// Up arrow - add downward impulse
+			physicsState.velocityY -= keyboardImpulseStrength
+			fmt.Printf("UP ARROW: Added downward impulse, velocity: %.1f px/s (keyboard: %.1f)\n", physicsState.velocityY, keyboardImpulseStrength)
 		}
 	}
 
 	if *keyDownPressed {
 		*keyDownPressed = false // Reset flag
 		if scrollableHeight > 0 {
-			// Calculate position change for 10% of visible viewport height
-			viewportHeight := contentAreaHeight
-			scrollDistancePixels := float32(viewportHeight) * 0.1 // 10% of viewport height
-			positionChange := scrollDistancePixels / float32(scrollableHeight)
-
-			// Down arrow - move content up (increase position)
-			newPos := *verticalPos + positionChange
-
-			// Clamp to valid range
-			if newPos > 1.0 {
-				newPos = 1.0
-			}
-
-			// Apply the change directly
-			*verticalPos = newPos
-			verticalScrollbar.SetPosition(newPos)
-			fmt.Printf("DOWN ARROW: New vertical position: %.3f\n", newPos)
+			// Down arrow - add upward impulse
+			physicsState.velocityY += keyboardImpulseStrength
+			fmt.Printf("DOWN ARROW: Added upward impulse, velocity: %.1f px/s (keyboard: %.1f)\n", physicsState.velocityY, keyboardImpulseStrength)
 		}
 	}
 
-	// Handle horizontal keyboard events - direct 10% jumps
 	if *keyLeftPressed {
 		*keyLeftPressed = false // Reset flag
 		if scrollableWidth > 0 {
-			// Calculate position change for 10% of visible viewport width
-			viewportWidth := contentAreaWidth
-			scrollDistancePixels := float32(viewportWidth) * 0.1 // 10% of viewport width
-			positionChange := scrollDistancePixels / float32(scrollableWidth)
-
-			// Left arrow - move content right (decrease position)
-			newPos := *horizontalPos - positionChange
-
-			// Clamp to valid range
-			if newPos < 0.0 {
-				newPos = 0.0
-			}
-
-			// Apply the change directly
-			*horizontalPos = newPos
-			horizontalScrollbar.SetPosition(newPos)
-			fmt.Printf("LEFT ARROW: New horizontal position: %.3f\n", newPos)
+			// Left arrow - add rightward impulse
+			physicsState.velocityX -= keyboardImpulseStrength
+			fmt.Printf("LEFT ARROW: Added rightward impulse, velocity: %.1f px/s (keyboard: %.1f)\n", physicsState.velocityX, keyboardImpulseStrength)
 		}
 	}
 
 	if *keyRightPressed {
 		*keyRightPressed = false // Reset flag
 		if scrollableWidth > 0 {
-			// Calculate position change for 10% of visible viewport width
-			viewportWidth := contentAreaWidth
-			scrollDistancePixels := float32(viewportWidth) * 0.1 // 10% of viewport width
-			positionChange := scrollDistancePixels / float32(scrollableWidth)
-
-			// Right arrow - move content left (increase position)
-			newPos := *horizontalPos + positionChange
-
-			// Clamp to valid range
-			if newPos > 1.0 {
-				newPos = 1.0
-			}
-
-			// Apply the change directly
-			*horizontalPos = newPos
-			horizontalScrollbar.SetPosition(newPos)
-			fmt.Printf("RIGHT ARROW: New horizontal position: %.3f\n", newPos)
+			// Right arrow - add leftward impulse
+			physicsState.velocityX += keyboardImpulseStrength
+			fmt.Printf("RIGHT ARROW: Added leftward impulse, velocity: %.1f px/s (keyboard: %.1f)\n", physicsState.velocityX, keyboardImpulseStrength)
 		}
+	}
+
+	// Physics update loop - apply velocity, friction, speed limits, and bouncing
+	deltaTime := float32(1.0 / 60.0) // Assume 60 FPS for consistent physics
+
+	// Apply maximum speed limit
+	if physicsState.velocityX > physicsState.maxSpeed {
+		physicsState.velocityX = physicsState.maxSpeed
+	} else if physicsState.velocityX < -physicsState.maxSpeed {
+		physicsState.velocityX = -physicsState.maxSpeed
+	}
+	if physicsState.velocityY > physicsState.maxSpeed {
+		physicsState.velocityY = physicsState.maxSpeed
+	} else if physicsState.velocityY < -physicsState.maxSpeed {
+		physicsState.velocityY = -physicsState.maxSpeed
+	}
+
+	// Update position based on velocity
+	physicsState.positionX += physicsState.velocityX * deltaTime
+	physicsState.positionY += physicsState.velocityY * deltaTime
+
+	// Convert pixel position to normalized position (0.0 to 1.0)
+	var newHorizontalPos, newVerticalPos float32
+
+	if scrollableWidth > 0 {
+		newHorizontalPos = physicsState.positionX / float32(scrollableWidth)
+	} else {
+		newHorizontalPos = 0.0
+	}
+
+	if scrollableHeight > 0 {
+		newVerticalPos = physicsState.positionY / float32(scrollableHeight)
+	} else {
+		newVerticalPos = 0.0
+	}
+
+	// Handle edge boundaries - stop motion at edges instead of bouncing
+	if newHorizontalPos < 0.0 {
+		// Hit left edge - stop motion
+		physicsState.positionX = 0.0
+		physicsState.velocityX = 0.0
+		newHorizontalPos = 0.0
+		fmt.Printf("HIT LEFT EDGE: Motion stopped\n")
+	} else if newHorizontalPos > 1.0 {
+		// Hit right edge - stop motion
+		physicsState.positionX = float32(scrollableWidth)
+		physicsState.velocityX = 0.0
+		newHorizontalPos = 1.0
+		fmt.Printf("HIT RIGHT EDGE: Motion stopped\n")
+	}
+
+	if newVerticalPos < 0.0 {
+		// Hit top edge - stop motion
+		physicsState.positionY = 0.0
+		physicsState.velocityY = 0.0
+		newVerticalPos = 0.0
+		fmt.Printf("HIT TOP EDGE: Motion stopped\n")
+	} else if newVerticalPos > 1.0 {
+		// Hit bottom edge - stop motion
+		physicsState.positionY = float32(scrollableHeight)
+		physicsState.velocityY = 0.0
+		newVerticalPos = 1.0
+		fmt.Printf("HIT BOTTOM EDGE: Motion stopped\n")
+	}
+
+	// Apply friction (Newtonian decay) with momentum mass factor
+	// Higher momentum mass = less friction = longer motion
+	momentumFriction := physicsState.friction + (1.0-physicsState.friction)*(1.0/MomentumMass)
+	physicsState.velocityX *= momentumFriction
+	physicsState.velocityY *= momentumFriction
+
+	// Stop very small velocities to prevent infinite tiny movements
+	// Increased threshold due to high velocities and low friction
+	if math.Abs(float64(physicsState.velocityX)) < 100.0 {
+		physicsState.velocityX = 0.0
+	}
+	if math.Abs(float64(physicsState.velocityY)) < 100.0 {
+		physicsState.velocityY = 0.0
+	}
+
+	// Check if scrollbar track clicks have changed the position
+	// If so, convert the change to physics velocity instead of direct position control
+	if horizontalScrollbar.Changed() {
+		scrollbarPos := horizontalScrollbar.Position()
+		if math.Abs(float64(scrollbarPos-*horizontalPos)) > 0.001 {
+			// Scrollbar position changed due to track click - convert to physics
+			positionDiff := scrollbarPos - *horizontalPos
+			// Convert position difference to velocity (pixels per second)
+			// For 250ms animation, we need velocity = distance / 0.25
+			velocityChange := (positionDiff * float32(scrollableWidth)) / 0.25
+			physicsState.velocityX = velocityChange
+			physicsState.positionX = scrollbarPos * float32(scrollableWidth)
+			fmt.Printf("TRACK CLICK: Converted to velocity %.1f px/s\n", velocityChange)
+		}
+	}
+
+	if verticalScrollbar.Changed() {
+		scrollbarPos := verticalScrollbar.Position()
+		if math.Abs(float64(scrollbarPos-*verticalPos)) > 0.001 {
+			// Scrollbar position changed due to track click - convert to physics
+			positionDiff := scrollbarPos - *verticalPos
+			// Convert position difference to velocity (pixels per second)
+			// For 250ms animation, we need velocity = distance / 0.25
+			velocityChange := (positionDiff * float32(scrollableHeight)) / 0.25
+			physicsState.velocityY = velocityChange
+			physicsState.positionY = scrollbarPos * float32(scrollableHeight)
+			fmt.Printf("TRACK CLICK: Converted to velocity %.1f px/s\n", velocityChange)
+		}
+	}
+
+	// Update scrollbar positions and viewport
+	*horizontalPos = newHorizontalPos
+	*verticalPos = newVerticalPos
+	horizontalScrollbar.SetPosition(newHorizontalPos)
+	verticalScrollbar.SetPosition(newVerticalPos)
+
+	// Debug output for active physics
+	if physicsState.velocityX != 0.0 || physicsState.velocityY != 0.0 {
+		fmt.Printf("Physics: pos(%.1f, %.1f) vel(%.1f, %.1f) px/s (momentum friction: %.4f)\n",
+			physicsState.positionX, physicsState.positionY,
+			physicsState.velocityX, physicsState.velocityY, momentumFriction)
+	}
+
+	// Debug output when both velocities are active (potential drift issue)
+	if physicsState.velocityX != 0.0 && physicsState.velocityY != 0.0 {
+		fmt.Printf("⚠️  DRIFT DETECTED: Both X(%.1f) and Y(%.1f) velocities active!\n",
+			physicsState.velocityX, physicsState.velocityY)
 	}
 
 	// Handle clicks in the center area to show modal
