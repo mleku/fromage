@@ -96,6 +96,7 @@ cmd/benchmark/data
 !*.tsx
 !bun.lock
 !*.svelte
+!.cursor/**
 # ...even if they are in subdirectories
 !*/
 /blocklist.json
