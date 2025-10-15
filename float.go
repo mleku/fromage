@@ -131,9 +131,10 @@ func (f *Float) Layout(gtx layout.Context, th *Theme) layout.Dimensions {
 
 	// Draw track
 	trackHeight := gtx.Dp(unit.Dp(4))
+	centerY := size.Y / 2
 	trackRect := image.Rectangle{
-		Min: image.Pt(0, (size.Y-trackHeight)/2),
-		Max: image.Pt(size.X, (size.Y+trackHeight)/2),
+		Min: image.Pt(0, centerY-trackHeight/2),
+		Max: image.Pt(size.X, centerY+trackHeight/2),
 	}
 	defer clip.RRect{Rect: trackRect, NW: trackHeight / 2, NE: trackHeight / 2, SW: trackHeight / 2, SE: trackHeight / 2}.Push(gtx.Ops).Pop()
 	paint.Fill(gtx.Ops, th.Colors.OutlineVariant())
@@ -149,8 +150,8 @@ func (f *Float) Layout(gtx layout.Context, th *Theme) layout.Dimensions {
 	}
 
 	thumbRect := image.Rectangle{
-		Min: image.Pt(thumbX-thumbSize/2, (size.Y-thumbSize)/2),
-		Max: image.Pt(thumbX+thumbSize/2, (size.Y+thumbSize)/2),
+		Min: image.Pt(thumbX-thumbSize/2, centerY-thumbSize/2),
+		Max: image.Pt(thumbX+thumbSize/2, centerY+thumbSize/2),
 	}
 	defer clip.Ellipse(thumbRect).Push(gtx.Ops).Pop()
 	paint.Fill(gtx.Ops, th.Colors.Primary())

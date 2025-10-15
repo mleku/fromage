@@ -1,0 +1,632 @@
+package fromage
+
+import (
+	"image"
+	"time"
+
+	"gioui.org/gesture"
+	"gioui.org/io/pointer"
+	"gioui.org/layout"
+	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
+	"gioui.org/unit"
+	"gioui.org/widget"
+)
+
+// Scrollbar is a scrollbar widget for indicating scroll position and allowing scrolling
+type Scrollbar struct {
+	// Viewport represents the visible portion of the content (0-1)
+	viewport float32
+	// Position represents the scroll position within the content (0-1)
+	position float32
+	// Orientation determines if the scrollbar is horizontal or vertical
+	orientation Orientation
+	// Width is the width of the scrollbar (defaults to 1 text height)
+	width unit.Dp
+
+	clickable  *widget.Clickable
+	changed    bool
+	changeHook func(float32)
+	dragging   bool
+	drag       gesture.Drag
+
+	// Button controls - direct clickables for perfect square control
+	leftClickable  *widget.Clickable
+	rightClickable *widget.Clickable
+	scrollRate     float32 // pixels per second
+	lastScroll     time.Time
+	scrollAmount   float32
+
+	// Button press tracking
+	leftPressed    bool
+	rightPressed   bool
+	pressStart     time.Time
+	leftTriggered  bool
+	rightTriggered bool
+
+	// Click tracking for triple click detection
+	clickCount    int
+	lastClickTime time.Time
+
+	// Animation for smooth track clicks
+	animating     bool
+	animStartTime time.Time
+	animStartPos  float32
+	animTargetPos float32
+}
+
+// Orientation represents the scrollbar orientation
+type Orientation int
+
+const (
+	Horizontal Orientation = iota
+	Vertical
+)
+
+// NewScrollbar creates a new scrollbar
+func (t *Theme) NewScrollbar(orientation Orientation) *Scrollbar {
+	sb := &Scrollbar{
+		clickable:   t.Pool.GetClickable(),
+		changeHook:  func(float32) {},
+		orientation: orientation,
+		width:       t.TextSize,              // Default to 1 text height wide
+		viewport:    0.5,                     // Default to showing 50% of content
+		position:    0.0,                     // Default to start position
+		scrollRate:  float32(t.TextSize) * 5, // 5 text heights per second
+		lastScroll:  time.Now(),
+	}
+
+	// Create direct clickables for perfect square control
+	sb.leftClickable = t.Pool.GetClickable()
+	sb.rightClickable = t.Pool.GetClickable()
+
+	return sb
+}
+
+// SetViewport sets the viewport size (0-1, where 1 means all content is visible)
+func (s *Scrollbar) SetViewport(viewport float32) *Scrollbar {
+	if viewport < 0 {
+		viewport = 0
+	} else if viewport > 1 {
+		viewport = 1
+	}
+	s.viewport = viewport
+	return s
+}
+
+// SetPosition sets the scroll position (0-1, where 0 is start, 1 is end)
+func (s *Scrollbar) SetPosition(position float32) *Scrollbar {
+	if position < 0 {
+		position = 0
+	} else if position > 1 {
+		position = 1
+	}
+	s.position = position
+	return s
+}
+
+// SetWidth sets the width of the scrollbar
+func (s *Scrollbar) SetWidth(width unit.Dp) *Scrollbar {
+	s.width = width
+	return s
+}
+
+// SetHook sets the change callback
+func (s *Scrollbar) SetHook(fn func(float32)) *Scrollbar {
+	s.changeHook = fn
+	return s
+}
+
+// Viewport returns the current viewport size
+func (s *Scrollbar) Viewport() float32 {
+	return s.viewport
+}
+
+// Position returns the current scroll position
+func (s *Scrollbar) Position() float32 {
+	return s.position
+}
+
+// Layout renders the scrollbar
+func (s *Scrollbar) Layout(gtx layout.Context, th *Theme) layout.Dimensions {
+	// Calculate button size (2 text heights square)
+	buttonSize := gtx.Dp(unit.Dp(float32(th.TextSize) * 2))
+
+	// Ensure buttons are square by using the smaller dimension
+	if s.orientation == Horizontal {
+		// For horizontal scrollbar, button height should match scrollbar width
+		scrollbarHeight := gtx.Dp(s.width)
+		if buttonSize > scrollbarHeight {
+			buttonSize = scrollbarHeight
+		}
+	} else {
+		// For vertical scrollbar, button width should match scrollbar width
+		scrollbarWidth := gtx.Dp(s.width)
+		if buttonSize > scrollbarWidth {
+			buttonSize = scrollbarWidth
+		}
+	}
+
+	// Calculate available space for track (total space minus buttons)
+	var trackSpace int
+	if s.orientation == Horizontal {
+		trackSpace = gtx.Constraints.Min.X - 2*buttonSize
+		if trackSpace < gtx.Dp(unit.Dp(50)) {
+			trackSpace = gtx.Dp(unit.Dp(50)) // Minimum track space
+		}
+	} else {
+		trackSpace = gtx.Constraints.Min.Y - 2*buttonSize
+		if trackSpace < gtx.Dp(unit.Dp(50)) {
+			trackSpace = gtx.Dp(unit.Dp(50)) // Minimum track space
+		}
+	}
+
+	// Calculate total size (for future use if needed)
+	_ = func() image.Point {
+		if s.orientation == Horizontal {
+			return image.Pt(2*buttonSize+trackSpace, gtx.Dp(s.width))
+		}
+		return image.Pt(gtx.Dp(s.width), 2*buttonSize+trackSpace)
+	}()
+
+	// Handle button interactions
+	s.handleButtonInteractions(gtx, th, trackSpace)
+
+	// Handle animation
+	s.updateAnimation(gtx)
+
+	// Calculate thumb size and position
+	var thumbSize, thumbPos int
+	var trackLength float32 = float32(trackSpace)
+
+	if s.orientation == Horizontal {
+		thumbSize = int(float32(trackSpace) * s.viewport)
+		if thumbSize < gtx.Dp(unit.Dp(20)) {
+			thumbSize = gtx.Dp(unit.Dp(20)) // Minimum thumb size
+		}
+		thumbPos = int(float32(trackSpace-thumbSize) * s.position)
+	} else {
+		thumbSize = int(float32(trackSpace) * s.viewport)
+		if thumbSize < gtx.Dp(unit.Dp(20)) {
+			thumbSize = gtx.Dp(unit.Dp(20)) // Minimum thumb size
+		}
+		thumbPos = int(float32(trackSpace-thumbSize) * s.position)
+	}
+
+	// Ensure minimum thumb size for visibility
+	if thumbSize < gtx.Dp(unit.Dp(20)) {
+		thumbSize = gtx.Dp(unit.Dp(20))
+	}
+
+	// Handle drag gestures on track
+	for {
+		ev, ok := s.drag.Update(gtx.Metric, gtx.Source, gesture.Axis(s.orientation))
+		if !ok {
+			break
+		}
+
+		switch ev.Kind {
+		case pointer.Press:
+			// Check if click is on thumb or track
+			var clickPos float32
+			if s.orientation == Horizontal {
+				clickPos = (ev.Position.X - float32(buttonSize)) / trackLength
+			} else {
+				clickPos = (ev.Position.Y - float32(buttonSize)) / trackLength
+			}
+
+			// Calculate thumb position and size in normalized coordinates
+			thumbRatio := float32(thumbSize) / trackLength
+			thumbStart := s.position * (1 - thumbRatio)
+			thumbEnd := thumbStart + thumbRatio
+
+			if clickPos >= thumbStart && clickPos <= thumbEnd {
+				// Click is on thumb - start dragging
+				s.dragging = true
+			} else {
+				// Click is on track - scroll to next page
+				s.handleTrackClick(clickPos, thumbStart, thumbEnd, trackSpace)
+			}
+		case pointer.Drag:
+			if s.dragging {
+				// Update position based on drag position
+				var newPos float32
+				if s.orientation == Horizontal {
+					newPos = (ev.Position.X - float32(buttonSize)) / trackLength
+				} else {
+					newPos = (ev.Position.Y - float32(buttonSize)) / trackLength
+				}
+
+				// Adjust for thumb size
+				thumbRatio := float32(thumbSize) / trackLength
+				if newPos < thumbRatio/2 {
+					newPos = 0
+				} else if newPos > 1-thumbRatio/2 {
+					newPos = 1
+				} else {
+					newPos = (newPos - thumbRatio/2) / (1 - thumbRatio)
+				}
+
+				if newPos < 0 {
+					newPos = 0
+				} else if newPos > 1 {
+					newPos = 1
+				}
+				s.position = newPos
+				s.changed = true
+				s.changeHook(s.position)
+			}
+		case pointer.Release:
+			s.dragging = false
+		}
+	}
+
+	// Layout the scrollbar with buttons
+	if s.orientation == Horizontal {
+		// Horizontal layout: [left button] [track] [right button]
+		return th.HFlex().
+			Rigid(func(g C) D {
+				// Left button - perfect square
+				return s.layoutButton(g, th, buttonSize, s.leftClickable, true)
+			}).
+			Rigid(func(g C) D {
+				// Track area - center within button height
+				g.Constraints.Min = image.Pt(trackSpace, buttonSize)
+				return s.layoutTrack(g, th, trackSpace, thumbSize, thumbPos)
+			}).
+			Rigid(func(g C) D {
+				// Right button - perfect square
+				return s.layoutButton(g, th, buttonSize, s.rightClickable, false)
+			}).
+			Layout(gtx)
+	} else {
+		// Vertical layout: [up button] [track] [down button]
+		return th.VFlex().
+			Rigid(func(g C) D {
+				// Up button - perfect square
+				return s.layoutButton(g, th, buttonSize, s.leftClickable, true)
+			}).
+			Rigid(func(g C) D {
+				// Track area - center within button width
+				g.Constraints.Min = image.Pt(buttonSize, trackSpace)
+				return s.layoutTrack(g, th, trackSpace, thumbSize, thumbPos)
+			}).
+			Rigid(func(g C) D {
+				// Down button - perfect square
+				return s.layoutButton(g, th, buttonSize, s.rightClickable, false)
+			}).
+			Layout(gtx)
+	}
+}
+
+// layoutTrack renders the track and thumb with perfect centering
+func (s *Scrollbar) layoutTrack(gtx layout.Context, th *Theme, trackSpace, thumbSize, thumbPos int) layout.Dimensions {
+	// Calculate perfect center points
+	centerX := gtx.Constraints.Min.X / 2
+	centerY := gtx.Constraints.Min.Y / 2
+
+	// Define the full background area (same size as buttons)
+	backgroundRect := image.Rectangle{
+		Min: image.Pt(0, 0),
+		Max: image.Pt(gtx.Constraints.Min.X, gtx.Constraints.Min.Y),
+	}
+
+	// Register drag gesture area for the full background area (same size as buttons)
+	area := clip.Rect(backgroundRect).Push(gtx.Ops)
+	s.drag.Add(gtx.Ops)
+	area.Pop()
+
+	// Draw track FIRST to ensure it's visible
+	var trackRect image.Rectangle
+	if s.orientation == Horizontal {
+		// Track line is thin in height, centered within the expanded area, widened 1px downwards
+		trackHeight := gtx.Dp(unit.Dp(4))
+		trackRect = image.Rectangle{
+			Min: image.Pt(0, centerY-trackHeight/2),
+			Max: image.Pt(gtx.Constraints.Min.X, centerY+trackHeight/2+1),
+		}
+	} else {
+		// Track line is thin in width, centered within the expanded area, widened 1px rightwards
+		trackWidth := gtx.Dp(unit.Dp(4))
+		trackRect = image.Rectangle{
+			Min: image.Pt(centerX-trackWidth/2, 0),
+			Max: image.Pt(centerX+trackWidth/2+1, gtx.Constraints.Min.Y),
+		}
+	}
+
+	defer clip.Rect(trackRect).Push(gtx.Ops).Pop()
+	paint.Fill(gtx.Ops, th.Colors.OutlineVariant()) // Same color as float slider track
+
+	// Draw thumb SECOND - rectangle matching track cross-axis width
+	var thumbRect image.Rectangle
+	if s.orientation == Horizontal {
+		// Horizontal thumb: length along axis = thumbSize, height = track height (thin), widened 1px downwards
+		trackHeight := gtx.Dp(unit.Dp(4))
+		thumbRect = image.Rectangle{
+			Min: image.Pt(thumbPos, centerY-trackHeight/2),
+			Max: image.Pt(thumbPos+thumbSize, centerY+trackHeight/2+1),
+		}
+	} else {
+		// Vertical thumb: length along axis = thumbSize, width = track width (thin), widened 1px rightwards
+		trackWidth := gtx.Dp(unit.Dp(4))
+		thumbRect = image.Rectangle{
+			Min: image.Pt(centerX-trackWidth/2, thumbPos),
+			Max: image.Pt(centerX+trackWidth/2+1, thumbPos+thumbSize),
+		}
+	}
+
+	defer clip.Rect(thumbRect).Push(gtx.Ops).Pop()
+	paint.Fill(gtx.Ops, th.Colors.Primary()) // Use theme primary color
+
+	// Draw transparent background (this creates the full-width area)
+	defer clip.RRect{Rect: backgroundRect, NW: 0, NE: 0, SW: 0, SE: 0}.Push(gtx.Ops).Pop()
+	// No paint.Fill here - this is transparent background area
+
+	return layout.Dimensions{Size: gtx.Constraints.Min}
+}
+
+// layoutButton draws a perfect square button with direct click handling
+func (s *Scrollbar) layoutButton(gtx layout.Context, th *Theme, size int, clickable *widget.Clickable, isLeft bool) layout.Dimensions {
+	// Force exact square constraints
+	gtx.Constraints = layout.Exact(image.Pt(size, size))
+
+	// Handle button click
+	if clickable.Clicked(gtx) {
+		// Handle button click
+		if isLeft {
+			s.handleButtonClick(-1, gtx, th)
+		} else {
+			s.handleButtonClick(1, gtx, th)
+		}
+	}
+
+	// Draw the button background
+	buttonRect := image.Rectangle{
+		Min: image.Pt(0, 0),
+		Max: image.Pt(size, size),
+	}
+
+	// Draw button background
+	defer clip.Rect(buttonRect).Push(gtx.Ops).Pop()
+	paint.Fill(gtx.Ops, th.Colors.Surface())
+
+	// Register clickable area
+	clickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.Dimensions{Size: image.Pt(size, size)}
+	})
+
+	return layout.Dimensions{Size: image.Pt(size, size)}
+}
+
+// handleButtonClick processes a button click
+func (s *Scrollbar) handleButtonClick(direction int, gtx layout.Context, th *Theme) {
+	// Calculate scroll distance (25 text heights as requested)
+	scrollDistance := float32(th.TextSize) * 25
+
+	// Apply scroll
+	if direction < 0 {
+		// Left/Up - scroll backwards
+		s.position -= scrollDistance / float32(gtx.Constraints.Min.X)
+	} else {
+		// Right/Down - scroll forwards
+		s.position += scrollDistance / float32(gtx.Constraints.Min.X)
+	}
+
+	// Clamp position
+	if s.position < 0 {
+		s.position = 0
+	} else if s.position > 1 {
+		s.position = 1
+	}
+
+	s.changed = true
+	s.changeHook(s.position)
+}
+
+// handleButtonInteractions processes button clicks and long presses
+func (s *Scrollbar) handleButtonInteractions(gtx layout.Context, th *Theme, trackSpace int) {
+	now := gtx.Now
+
+	// Handle left button (up/left)
+	leftPressed := s.leftClickable.Pressed()
+	if leftPressed && !s.leftPressed {
+		// Button just pressed
+		s.leftPressed = true
+		s.pressStart = now
+		s.leftTriggered = false // Reset trigger flag
+	} else if !leftPressed && s.leftPressed {
+		// Button just released
+		s.leftPressed = false
+		duration := now.Sub(s.pressStart)
+
+		// Reset click sequence tracking
+		s.clickCount = 0
+		s.lastClickTime = time.Time{}
+
+		if duration < 500*time.Millisecond {
+			// Short press - handle click counting
+			s.handleClickSequence(now, -1, trackSpace)
+		}
+	}
+
+	// Handle right button (down/right)
+	rightPressed := s.rightClickable.Pressed()
+	if rightPressed && !s.rightPressed {
+		// Button just pressed
+		s.rightPressed = true
+		s.pressStart = now
+		s.rightTriggered = false // Reset trigger flag
+	} else if !rightPressed && s.rightPressed {
+		// Button just released
+		s.rightPressed = false
+		duration := now.Sub(s.pressStart)
+
+		// Reset click sequence tracking
+		s.clickCount = 0
+		s.lastClickTime = time.Time{}
+
+		if duration < 500*time.Millisecond {
+			// Short press - handle click counting
+			s.handleClickSequence(now, 1, trackSpace)
+		}
+	}
+
+	// Handle long press animation (trigger at exactly 1 second while held)
+	if s.leftPressed && now.Sub(s.pressStart) > 1000*time.Millisecond && !s.leftTriggered {
+		// Trigger ink effect and fast scroll animation
+		s.leftClickable.Clicked(gtx) // Trigger ink effect
+		s.startFastAnimation(0)      // Fast scroll to start
+		s.leftTriggered = true       // Mark as triggered
+	}
+	if s.rightPressed && now.Sub(s.pressStart) > 1000*time.Millisecond && !s.rightTriggered {
+		// Trigger ink effect and fast scroll animation
+		s.rightClickable.Clicked(gtx) // Trigger ink effect
+		s.startFastAnimation(1)       // Fast scroll to end
+		s.rightTriggered = true       // Mark as triggered
+	}
+
+	// Request next frame if button is pressed to ensure continuous checking
+	if s.leftPressed || s.rightPressed {
+		gtx.Execute(op.InvalidateCmd{})
+	}
+}
+
+// handleClickSequence handles single clicks only
+func (s *Scrollbar) handleClickSequence(now time.Time, direction int, trackSpace int) {
+	// Single click - scroll by 25 text heights worth of viewport
+	s.scrollByViewport(25*direction, trackSpace)
+	s.lastScroll = now
+}
+
+// handleTrackClick handles clicks on the track (non-thumb area) with smooth animation
+func (s *Scrollbar) handleTrackClick(clickPos, thumbStart, thumbEnd float32, trackSpace int) {
+	// Calculate thumb size
+	thumbSize := int(float32(trackSpace) * s.viewport)
+	if thumbSize < 20 { // Minimum thumb size
+		thumbSize = 20
+	}
+
+	// Calculate one page worth of scrolling (same as viewport size)
+	pageSize := float32(thumbSize) / float32(trackSpace)
+
+	var targetPos float32
+	if clickPos < thumbStart {
+		// Click is before thumb - scroll backward by one page
+		targetPos = s.position - pageSize
+		if targetPos < 0 {
+			targetPos = 0
+		}
+	} else if clickPos > thumbEnd {
+		// Click is after thumb - scroll forward by one page
+		targetPos = s.position + pageSize
+		if targetPos > 1 {
+			targetPos = 1
+		}
+	} else {
+		// Click is on thumb - no animation needed
+		return
+	}
+
+	// Start smooth animation
+	s.startAnimation(targetPos)
+}
+
+// scrollByViewport scrolls by a number of text heights worth of viewport content
+func (s *Scrollbar) scrollByViewport(textHeights int, trackSpace int) {
+	// Calculate how much of the total content is visible (viewport ratio)
+	viewportRatio := s.viewport
+
+	// Calculate the scroll distance as a fraction of the total content
+	// text heights worth of content relative to the viewport size
+	scrollDistance := float32(textHeights) / float32(trackSpace) * viewportRatio
+
+	s.position += scrollDistance
+	if s.position < 0 {
+		s.position = 0
+	} else if s.position > 1 {
+		s.position = 1
+	}
+	s.changed = true
+	s.changeHook(s.position)
+}
+
+// handleLongPressScroll handles smooth scrolling every 4 seconds during long press
+func (s *Scrollbar) handleLongPressScroll(gtx layout.Context, direction int, trackSpace int) {
+	now := gtx.Now
+
+	// Calculate time since last scroll trigger
+	dt := float32(now.Sub(s.lastScroll).Seconds())
+
+	// Trigger every 4 seconds
+	if dt >= 4.0 {
+		// Scroll by the same distance as single click (25 text heights)
+		s.scrollByViewport(25*direction, trackSpace)
+
+		// Update last scroll time
+		s.lastScroll = now
+	}
+}
+
+// startFastAnimation starts a fast animation to the target position (100ms)
+func (s *Scrollbar) startFastAnimation(targetPos float32) {
+	s.animating = true
+	s.animStartTime = time.Now()
+	s.animStartPos = s.position
+	s.animTargetPos = targetPos
+}
+
+// startAnimation starts a smooth animation to the target position
+func (s *Scrollbar) startAnimation(targetPos float32) {
+	s.animating = true
+	s.animStartTime = time.Now()
+	s.animStartPos = s.position
+	s.animTargetPos = targetPos
+}
+
+// updateAnimation updates the animation progress
+func (s *Scrollbar) updateAnimation(gtx layout.Context) {
+	if !s.animating {
+		return
+	}
+
+	now := gtx.Now
+	elapsed := float32(now.Sub(s.animStartTime).Seconds())
+
+	// Determine animation duration based on target position
+	var duration float32
+	if s.animTargetPos == 0 || s.animTargetPos == 1 {
+		// Fast animation for end positions (100ms)
+		duration = float32(0.1)
+	} else {
+		// Normal animation for track clicks (250ms)
+		duration = float32(0.25)
+	}
+
+	if elapsed >= duration {
+		// Animation complete
+		s.position = s.animTargetPos
+		s.animating = false
+		s.changed = true
+		s.changeHook(s.position)
+	} else {
+		// Calculate progress with easing (ease-out cubic)
+		progress := elapsed / duration
+		easedProgress := 1 - (1-progress)*(1-progress)*(1-progress)
+
+		// Interpolate position
+		s.position = s.animStartPos + (s.animTargetPos-s.animStartPos)*easedProgress
+		s.changed = true
+		s.changeHook(s.position)
+
+		// Request next frame
+		gtx.Execute(op.InvalidateCmd{})
+	}
+}
+
+// Changed returns true if the position has changed since last call
+func (s *Scrollbar) Changed() bool {
+	changed := s.changed
+	s.changed = false
+	return changed
+}

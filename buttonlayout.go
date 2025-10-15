@@ -136,15 +136,24 @@ func (b *ButtonLayout) Layout(g C) D {
 		widgetDims = D{Size: image.Pt(100, 40)}
 	}
 
-	// Ensure minimum button size based on theme text size
-	minWidth := int(float32(b.theme.TextSize) * 6.25) // ~100px for 16px text
-	minHeight := int(float32(b.theme.TextSize) * 2.5) // ~40px for 16px text
-	minSize := image.Pt(minWidth, minHeight)
-	if widgetDims.Size.X < minSize.X {
-		widgetDims.Size.X = minSize.X
-	}
-	if widgetDims.Size.Y < minSize.Y {
-		widgetDims.Size.Y = minSize.Y
+	// Respect the constraints passed to the button instead of enforcing minimum size
+	// Only apply minimum size if no explicit constraints are provided
+	if g.Constraints.Min.X == 0 && g.Constraints.Min.Y == 0 {
+		// No explicit constraints - apply default minimum size
+		minWidth := int(float32(b.theme.TextSize) * 1)
+		minHeight := int(float32(b.theme.TextSize) * 1)
+		minSize := image.Pt(minWidth, minHeight)
+		if widgetDims.Size.X < minSize.X {
+			widgetDims.Size.X = minSize.X
+		}
+		if widgetDims.Size.Y < minSize.Y {
+			widgetDims.Size.Y = minSize.Y
+		}
+	} else {
+		// Use the explicit constraints provided - completely override widget size
+		widgetDims.Size = g.Constraints.Min
+		// Also override the dimensions to match the constraints exactly
+		widgetDims = D{Size: g.Constraints.Min}
 	}
 
 	// Create the button layout using the clickable's Layout method
@@ -152,12 +161,16 @@ func (b *ButtonLayout) Layout(g C) D {
 		// Add semantic information for accessibility
 		semantic.Button.Add(g.Ops)
 
-		// Draw background
-		bgDims := b.drawBackground(g, widgetDims.Size)
+		// Draw background - use exact constraints if provided
+		finalSize := widgetDims.Size
+		if g.Constraints.Min.X > 0 && g.Constraints.Min.Y > 0 {
+			finalSize = g.Constraints.Min
+		}
+		bgDims := b.drawBackground(g, finalSize)
 
 		// Draw content on top - use layout.Center to properly queue the widget
 		if b.widget != nil {
-			g.Constraints.Min = widgetDims.Size
+			g.Constraints.Min = finalSize
 			layout.Center.Layout(g, b.widget)
 		}
 
@@ -180,11 +193,18 @@ func (b *ButtonLayout) drawBackground(g C, size image.Point) D {
 	// Create rounded rectangle clip
 	rect := image.Rectangle{Max: size}
 
-	// Calculate corner radius, handling pill shape
+	// Calculate corner radius, handling pill shape and perfect circles
 	radius := float32(g.Dp(b.cornerRadius))
 	if b.cornerRadius > unit.Dp(500) {
 		// This is a pill shape - use half the button height
 		radius = float32(size.Y) / 2
+	} else if b.cornerRadius > unit.Dp(100) {
+		// This is a perfect circle - use half the smaller dimension
+		if size.X < size.Y {
+			radius = float32(size.X) / 2
+		} else {
+			radius = float32(size.Y) / 2
+		}
 	}
 
 	rrect := clip.RRect{

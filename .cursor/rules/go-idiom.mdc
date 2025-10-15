@@ -2,3 +2,4 @@
 alwaysApply: true
 ---
 always use named returns, always
+always check that changes compile before submitting
