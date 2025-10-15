@@ -8,7 +8,6 @@ import (
 
 	"gioui.org/app"
 	"gioui.org/font/gofont"
-	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/paint"
 	"gioui.org/text"
@@ -65,7 +64,7 @@ type AppState struct {
 
 var appState *AppState
 
-func drawerDemo(gtx layout.Context, th *fromage.Theme, win *fromage.Window) {
+func drawerDemo(gtx C, th *fromage.Theme, win *fromage.Window) {
 	// Fill background with theme background color
 	paint.Fill(gtx.Ops, th.Colors.Background())
 
@@ -83,23 +82,23 @@ func drawerDemo(gtx layout.Context, th *fromage.Theme, win *fromage.Window) {
 			drawerWithControls: win.NewDrawerWithControls().
 				Width(unit.Dp(300)).
 				Height(unit.Dp(200)).
-				Content(func(gtx layout.Context) layout.Dimensions {
+				Content(func(gtx C) D {
 					return th.VFlex().
 						SpaceEvenly().
-						Rigid(func(gtx layout.Context) layout.Dimensions {
+						Rigid(func(gtx C) D {
 							return th.H6("Drawer Position").
 								Color(th.Colors.OnSurface()).
 								Layout(gtx)
 						}).
-						Rigid(func(gtx layout.Context) layout.Dimensions {
+						Rigid(func(gtx C) D {
 							return th.Body1("Select drawer position:").
 								Color(th.Colors.OnSurface()).
 								Layout(gtx)
 						}).
-						Rigid(func(gtx layout.Context) layout.Dimensions {
+						Rigid(func(gtx C) D {
 							return positionRadio.Layout(gtx)
 						}).
-						Rigid(func(gtx layout.Context) layout.Dimensions {
+						Rigid(func(gtx C) D {
 							btn := th.TextButton("Close Drawer")
 							if btn.Clicked(gtx) {
 								appState.drawerWithControls.Hide()
@@ -149,20 +148,20 @@ func drawerDemo(gtx layout.Context, th *fromage.Theme, win *fromage.Window) {
 	}
 
 	// Main content
-	mainContent := func(gtx layout.Context) layout.Dimensions {
+	mainContent := func(gtx C) D {
 		return th.VFlex().
 			SpaceEvenly().
-			Rigid(func(gtx layout.Context) layout.Dimensions {
+			Rigid(func(gtx C) D {
 				return th.H4("Drawer Demo").
 					Color(th.Colors.OnSurface()).
 					Layout(gtx)
 			}).
-			Rigid(func(gtx layout.Context) layout.Dimensions {
+			Rigid(func(gtx C) D {
 				return th.Body1("Click the button to open the drawer. Use the radio buttons inside the drawer to change its position.").
 					Color(th.Colors.OnSurface()).
 					Layout(gtx)
 			}).
-			Rigid(func(gtx layout.Context) layout.Dimensions {
+			Rigid(func(gtx C) D {
 				// Single button to open drawer
 				btn := th.TextButton("Open Drawer")
 				if btn.Clicked(gtx) {
@@ -170,7 +169,7 @@ func drawerDemo(gtx layout.Context, th *fromage.Theme, win *fromage.Window) {
 				}
 				return btn.Layout(gtx)
 			}).
-			Rigid(func(gtx layout.Context) layout.Dimensions {
+			Rigid(func(gtx C) D {
 				return th.Body2("Click outside the drawer or use the close button to hide it.").
 					Color(th.Colors.OnSurfaceVariant()).
 					Layout(gtx)

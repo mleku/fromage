@@ -40,6 +40,7 @@ type AppState struct {
 	modalStack      *fromage.ModalStack
 	verticalRadio   *fromage.RadioButtonGroup
 	horizontalRadio *fromage.RadioButtonGroup
+	intSlider       *fromage.Int
 }
 
 var appState *AppState
@@ -83,13 +84,19 @@ func main() {
 			SetOnChange(func(index int, label string) {
 				log.I.F("[HOOK] Horizontal radio selected: %d - %s", index, label)
 			}),
+		intSlider: th.NewInt().
+			SetRange(0, 100).
+			SetValue(50).
+			SetHook(func(value int) {
+				log.I.F("[HOOK] Int slider changed to: %d", value)
+			}),
 	}
 
 	// Initialize the color selector with the current surface tint
 	currentSurfaceTint := th.Colors.GetSurfaceTint()
 	appState.colorSelector.SetColor(currentSurfaceTint)
 	w.Option(app.Size(
-		unit.Dp(800), unit.Dp(800)),
+		unit.Dp(1200), unit.Dp(1200)),
 		app.Title("Kitchensink - Theme Demo"),
 	)
 	w.Run(loop(w.Window, th))
@@ -225,274 +232,248 @@ func mainUI(gtx layout.Context, th *fromage.Theme, w *fromage.Window) {
 			return button.Layout(g)
 		}).
 		Rigid(func(g C) D {
-			// Button style showcase with hover effects
-			return th.HFlex().
+			// Two neat rows of buttons at the top
+			return th.VFlex().
 				SpaceEvenly().
 				Rigid(func(g C) D {
-					// Secondary button with star icon
-					btn := th.SecondaryButton(
-						func(g C) D {
-							return th.HFlex().
-								SpaceEvenly().
-								AlignMiddle().
-								Rigid(func(g C) D {
-									return starIcon.Layout(g, th.Colors.OnSecondary())
-								}).
-								Rigid(func(g C) D {
-									return th.Body2("Secondary").
-										Color(th.Colors.OnSecondary()).
+					// First row: Main button styles
+					return th.HFlex().
+						SpaceEvenly().
+						Rigid(func(g C) D {
+							// Secondary button with star icon
+							btn := th.SecondaryButton(
+								func(g C) D {
+									return th.HFlex().
+										SpaceEvenly().
+										AlignMiddle().
+										Rigid(func(g C) D {
+											return starIcon.Layout(g, th.Colors.OnSecondary())
+										}).
+										Rigid(func(g C) D {
+											return th.Body2("Secondary").
+												Color(th.Colors.OnSecondary()).
+												Alignment(text.Middle).
+												Layout(g)
+										}).
+										Layout(g)
+								},
+							)
+							if btn.Clicked(g) {
+								log.I.F("Secondary button clicked")
+							}
+							return btn.Layout(g)
+						}).
+						Rigid(func(g C) D {
+							// Surface button with heart icon
+							btn := th.SurfaceButton(func(g C) D {
+								return th.HFlex().
+									SpaceEvenly().
+									AlignMiddle().
+									Rigid(func(g C) D {
+										return heartIcon.Layout(g, th.Colors.OnSurface())
+									}).
+									Rigid(func(g C) D {
+										return th.Body2("Surface").
+											Color(th.Colors.OnSurface()).
+											Alignment(text.Middle).
+											Layout(g)
+									}).
+									Layout(g)
+							},
+							)
+							if btn.Clicked(g) {
+								log.I.F("Surface button clicked")
+							}
+							return btn.Layout(g)
+						}).
+						Rigid(func(g C) D {
+							// Error button with warning icon
+							btn := th.ErrorButton(func(g C) D {
+								return th.HFlex().
+									SpaceEvenly().
+									AlignMiddle().
+									Rigid(func(g C) D {
+										return settingsIcon.Layout(g, th.Colors.OnError())
+									}).
+									Rigid(func(g C) D {
+										return th.Body2("Error").
+											Color(th.Colors.OnError()).
+											Alignment(text.Middle).
+											Layout(g)
+									}).
+									Layout(g)
+							},
+							)
+							if btn.Clicked(g) {
+								log.I.F("Error button clicked")
+							}
+							return btn.Layout(g)
+						}).
+						Rigid(func(g C) D {
+							// Disabled button example
+							btn := th.PrimaryButton(func(g C) D {
+								return th.Body2("Disabled").
+									Color(th.Colors.OnPrimary()).
+									Alignment(text.Middle).
+									Layout(g)
+							},
+							).Disabled(true) // This button is disabled
+
+							return btn.Layout(g)
+						}).
+						Layout(g)
+				}).
+				Rigid(func(g C) D {
+					// Second row: Shape and style buttons
+					return th.HFlex().
+						SpaceEvenly().
+						Rigid(func(g C) D {
+							// Rounded button
+							btn := th.RoundedButton(
+								func(g C) D {
+									return th.Caption("Rounded").
+										Color(th.Colors.OnPrimary()).
 										Alignment(text.Middle).
 										Layout(g)
-								}).
-								Layout(g)
-						},
-					)
-					if btn.Clicked(g) {
-						log.I.F("Secondary button clicked")
-					}
-					return btn.Layout(g)
+								},
+							)
+							if btn.Clicked(g) {
+								log.I.F("rounded button clicked")
+							}
+							return btn.Layout(g)
+						}).
+						Rigid(func(g C) D {
+							// Pill button
+							btn := th.PillButton(func(g C) D {
+								return th.Caption("Pill Shape").
+									Color(th.Colors.OnPrimary()).
+									Alignment(text.Middle).
+									Layout(g)
+							},
+							)
+							if btn.Clicked(g) {
+								log.I.F("pill button clicked")
+							}
+							return btn.Layout(g)
+						}).
+						Rigid(func(g C) D {
+							// Icon-only button
+							btn := th.NewButtonLayout().
+								Background(th.Colors.Tertiary()).
+								CornerRadius(0.5). // 50% of text size
+								Widget(func(g C) D {
+									return starIcon.Layout(g, th.Colors.OnTertiary())
+								})
+							if btn.Clicked(g) {
+								log.I.F("icon-only button clicked")
+							}
+							return btn.Layout(g)
+						}).
+						Rigid(func(g C) D {
+							// Text button with icon
+							btn := th.NewButtonLayout().
+								Widget(func(g C) D {
+									return th.HFlex().
+										SpaceEvenly().
+										AlignMiddle().
+										Rigid(func(g C) D {
+											return starIcon.Layout(g, th.Colors.OnBackground())
+										}).
+										Rigid(func(g C) D {
+											return th.Body2("Text").
+												Color(th.Colors.OnBackground()).
+												Alignment(text.Middle).
+												Layout(g)
+										}).
+										Layout(g)
+								})
+							if btn.Clicked(g) {
+								log.I.F("text button with icon clicked")
+							}
+							return btn.Layout(g)
+						}).
+						Layout(g)
 				}).
+				Layout(g)
+		}).
+		Rigid(func(g C) D {
+			// Three-column layout: Radio buttons (vertical), Radio buttons (horizontal), Switch & Checkbox
+			return th.HFlex().
+				SpaceEvenly().
 				Rigid(func(g C) D {
-					// Surface button with heart icon
-					btn := th.SurfaceButton(func(g C) D {
-						return th.HFlex().
+					// First column: Vertical radio buttons
+					return w.Inset(0.5, func(g C) D {
+						return th.VFlex().
 							SpaceEvenly().
-							AlignMiddle().
 							Rigid(func(g C) D {
-								return heartIcon.Layout(g, th.Colors.OnSurface())
-							}).
-							Rigid(func(g C) D {
-								return th.Body2("Surface").
-									Color(th.Colors.OnSurface()).
+								return th.Caption("Radio Buttons - Vertical").
+									Color(th.Colors.OnBackground()).
 									Alignment(text.Middle).
 									Layout(g)
 							}).
+							Rigid(func(g C) D {
+								return appState.verticalRadio.Layout(g)
+							}).
 							Layout(g)
-					},
-					)
-					if btn.Clicked(g) {
-						log.I.F("Surface button clicked")
-					}
-					return btn.Layout(g)
+					}).Fn(g)
 				}).
 				Rigid(func(g C) D {
-					// Error button with warning icon
-					btn := th.ErrorButton(func(g C) D {
-						return th.HFlex().
+					// Second column: Horizontal radio buttons
+					return w.Inset(0.5, func(g C) D {
+						return th.VFlex().
 							SpaceEvenly().
-							AlignMiddle().
 							Rigid(func(g C) D {
-								return settingsIcon.Layout(g, th.Colors.OnError())
-							}).
-							Rigid(func(g C) D {
-								return th.Body2("Error").
-									Color(th.Colors.OnError()).
+								return th.Caption("Radio Buttons - Horizontal").
+									Color(th.Colors.OnBackground()).
 									Alignment(text.Middle).
 									Layout(g)
 							}).
+							Rigid(func(g C) D {
+								return appState.horizontalRadio.Layout(g)
+							}).
 							Layout(g)
-					},
-					)
-					if btn.Clicked(g) {
-						log.I.F("Error button clicked")
-					}
-					return btn.Layout(g)
-				}).
-				Layout(g)
-		}).
-		Rigid(func(g C) D {
-			// Shape showcase with different corner styles
-			return th.HFlex().
-				SpaceEvenly().
-				Rigid(func(g C) D {
-					// Rounded button
-					btn := th.RoundedButton(
-						func(g C) D {
-							return th.Caption("Rounded").
-								Color(th.Colors.OnPrimary()).
-								Alignment(text.Middle).
-								Layout(g)
-						},
-					)
-					if btn.Clicked(g) {
-						log.I.F("rounded button clicked")
-					}
-					return btn.Layout(g)
+					}).Fn(g)
 				}).
 				Rigid(func(g C) D {
-					// Pill button
-					btn := th.PillButton(func(g C) D {
-						return th.Caption("Pill Shape").
-							Color(th.Colors.OnPrimary()).
-							Alignment(text.Middle).
-							Layout(g)
-					},
-					)
-					if btn.Clicked(g) {
-						log.I.F("pill button clicked")
-					}
-					return btn.Layout(g)
-				}).
-				Rigid(func(g C) D {
-					// Icon-only button using the icon widget
-					btn := th.NewButtonLayout().
-						Background(th.Colors.Tertiary()).
-						CornerRadius(0.5). // 50% of text size
-						Widget(func(g C) D {
-							return starIcon.Layout(g, th.Colors.OnTertiary())
-						})
-					if btn.Clicked(g) {
-						log.I.F("icon-only button clicked")
-					}
-					return btn.Layout(g)
-				}).
-				Layout(g)
-		}).
-		Rigid(func(g C) D {
-			// Icon size showcase
-			return th.HFlex().
-				SpaceEvenly().
-				Rigid(func(g C) D {
-					// Small icon button
-					btn := th.NewButtonLayout().
-						Background(th.Colors.Primary()).
-						CornerRadius(0.25). // 25% of text size
-						Widget(func(g C) D {
-							return starIcon.Layout(g, th.Colors.OnPrimary())
-						})
-					if btn.Clicked(g) {
-						log.I.F("small icon button clicked")
-					}
-					return btn.Layout(g)
-				}).
-				Rigid(func(g C) D {
-					// Medium icon button
-					btn := th.NewButtonLayout().
-						Background(th.Colors.Secondary()).
-						CornerRadius(0.25). // 25% of text size
-						Widget(func(g C) D {
-							return heartIcon.Layout(g, th.Colors.OnSecondary())
-						})
-					if btn.Clicked(g) {
-						log.I.F("medium icon button clicked")
-					}
-					return btn.Layout(g)
-				}).
-				Rigid(func(g C) D {
-					// Large icon button
-					btn := th.NewButtonLayout().
-						Background(th.Colors.Tertiary()).
-						CornerRadius(0.25). // 25% of text size
-						Widget(func(g C) D {
-							return settingsIcon.Layout(g, th.Colors.OnTertiary())
-						})
-					if btn.Clicked(g) {
-						log.I.F("large icon button clicked")
-					}
-					return btn.Layout(g)
-				}).
-				Layout(g)
-		}).
-		Rigid(func(g C) D {
-			// Text buttons with icons showcase
-			return th.HFlex().
-				SpaceEvenly().
-				Rigid(func(g C) D {
-					// Text button with icon
-					btn := th.NewButtonLayout().
-						Widget(func(g C) D {
-							return th.HFlex().
+					// Third column: Switch and Checkbox
+					return th.VFlex().
+						SpaceEvenly().
+						Rigid(func(g C) D {
+							// Switch widget
+							return th.VFlex().
 								SpaceEvenly().
-								AlignMiddle().
 								Rigid(func(g C) D {
-									return starIcon.Layout(g, th.Colors.OnBackground())
+									// Let the bool widget handle its own clicks
+									return appState.switchWidget.Layout(g)
 								}).
 								Rigid(func(g C) D {
-									return th.Body2("Text Button").
+									return th.Caption("Switch").
 										Color(th.Colors.OnBackground()).
 										Alignment(text.Middle).
 										Layout(g)
 								}).
 								Layout(g)
-						})
-					if btn.Clicked(g) {
-						log.I.F("text button with icon clicked")
-					}
-					return btn.Layout(g)
-				}).
-				Rigid(func(g C) D {
-					// Custom styled button with icon
-					btn := th.NewButtonLayout().
-						Background(th.Colors.Tertiary()).
-						CornerRadius(0.3). // 30% of text size
-						Corners(fromage.CornerNW | fromage.CornerNE).
-						Widget(func(g C) D {
-							return th.HFlex().
+						}).
+						Rigid(func(g C) D {
+							// Checkbox
+							return th.VFlex().
 								SpaceEvenly().
-								AlignMiddle().
 								Rigid(func(g C) D {
-									return heartIcon.Layout(g, th.Colors.OnTertiary())
-								}).
-								Rigid(func(g C) D {
-									return th.Caption("Custom Style").
-										Color(th.Colors.OnTertiary()).
+									return th.Caption("Checkbox Example").
+										Color(th.Colors.OnBackground()).
 										Alignment(text.Middle).
 										Layout(g)
 								}).
+								Rigid(func(g C) D {
+									// Single checkbox
+									checkbox := appState.checkbox.Label("Enable Feature")
+									return checkbox.Layout(g)
+								}).
 								Layout(g)
-						})
-					if btn.Clicked(g) {
-						log.I.F("custom button with icon clicked")
-					}
-					return btn.Layout(g)
+						}).
+						Layout(g)
 				}).
 				Layout(g)
-		}).
-		Rigid(func(g C) D {
-			// Disabled button example
-			btn := th.PrimaryButton(func(g C) D {
-				return th.Body2("Disabled Button").
-					Color(th.Colors.OnPrimary()).
-					Alignment(text.Middle).
-					Layout(g)
-			},
-			).Disabled(true) // This button is disabled
-
-			return btn.Layout(g)
-		}).
-		Rigid(func(g C) D {
-			// Radio button showcase - Vertical (moved up for better visibility)
-			return w.Inset(0.5, func(g C) D {
-				return th.VFlex().
-					SpaceEvenly().
-					Rigid(func(g C) D {
-						return th.Caption("Radio Buttons - Vertical").
-							Color(th.Colors.OnBackground()).
-							Alignment(text.Middle).
-							Layout(g)
-					}).
-					Rigid(func(g C) D {
-						return appState.verticalRadio.Layout(g)
-					}).
-					Layout(g)
-			}).Fn(g)
-		}).
-		Rigid(func(g C) D {
-			// Radio button showcase - Horizontal (moved up for better visibility)
-			return w.Inset(0.5, func(g C) D {
-				return th.VFlex().
-					SpaceEvenly().
-					Rigid(func(g C) D {
-						return th.Caption("Radio Buttons - Horizontal").
-							Color(th.Colors.OnBackground()).
-							Alignment(text.Middle).
-							Layout(g)
-					}).
-					Rigid(func(g C) D {
-						return appState.horizontalRadio.Layout(g)
-					}).
-					Layout(g)
-			}).Fn(g)
 		}).
 		Rigid(func(g C) D {
 			// Color selector for surface tint
@@ -514,39 +495,6 @@ func mainUI(gtx layout.Context, th *fromage.Theme, w *fromage.Window) {
 						Color(th.Colors.OnBackground()).
 						Alignment(text.Middle).
 						Layout(g)
-				}).
-				Layout(g)
-		}).
-		Rigid(func(g C) D {
-			// Switch widget showcase
-			return th.VFlex().
-				SpaceEvenly().
-				Rigid(func(g C) D {
-					// Let the bool widget handle its own clicks
-					return appState.switchWidget.Layout(g)
-				}).
-				Rigid(func(g C) D {
-					return th.Caption("Switch").
-						Color(th.Colors.OnBackground()).
-						Alignment(text.Middle).
-						Layout(g)
-				}).
-				Layout(g)
-		}).
-		Rigid(func(g C) D {
-			// Checkbox showcase
-			return th.VFlex().
-				SpaceEvenly().
-				Rigid(func(g C) D {
-					return th.Caption("Checkbox Example").
-						Color(th.Colors.OnBackground()).
-						Alignment(text.Middle).
-						Layout(g)
-				}).
-				Rigid(func(g C) D {
-					// Single checkbox
-					checkbox := appState.checkbox.Label("Enable Feature")
-					return checkbox.Layout(g)
 				}).
 				Layout(g)
 		}).
@@ -573,6 +521,30 @@ func mainUI(gtx layout.Context, th *fromage.Theme, w *fromage.Window) {
 						showModal(th)
 					}
 					return btn.Layout(g)
+				}).
+				Layout(g)
+		}).
+		Rigid(func(g C) D {
+			// Int Slider showcase
+			return th.VFlex().
+				SpaceEvenly().
+				Rigid(func(g C) D {
+					return th.Caption("Integer Slider Example").
+						Color(th.Colors.OnBackground()).
+						Alignment(text.Middle).
+						Layout(g)
+				}).
+				Rigid(func(g C) D {
+					// Display current value
+					currentValue := appState.intSlider.Value()
+					return th.Body2(fmt.Sprintf("Current Value: %d", currentValue)).
+						Color(th.Colors.OnBackground()).
+						Alignment(text.Middle).
+						Layout(g)
+				}).
+				Rigid(func(g C) D {
+					// Int slider
+					return appState.intSlider.Layout(g, th)
 				}).
 				Layout(g)
 		}).
