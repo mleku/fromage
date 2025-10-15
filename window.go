@@ -20,3 +20,10 @@ func (w *Window) Invalidate() {
 		w.Window.Invalidate()
 	}
 }
+
+// Run starts the window event loop with the provided function
+func (w *Window) Run(fn func()) {
+	if w.Window != nil {
+		w.Window.Run(fn)
+	}
+}

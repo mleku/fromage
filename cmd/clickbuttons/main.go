@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"image"
+	"image/color"
 
 	"gioui.org/app"
 	"gioui.org/font/gofont"
@@ -13,6 +14,7 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/unit"
+	"gioui.org/widget"
 	"github.com/mleku/fromage"
 	"lol.mleku.dev/chk"
 	"lol.mleku.dev/log"
@@ -25,19 +27,22 @@ type (
 	W = fromage.W
 )
 
-// PlacedButton represents a button that has been placed at a specific position
-type PlacedButton struct {
-	Position image.Point
-	Button   *fromage.ButtonLayout
-	ID       int
+// No longer needed - removed button placement functionality
+
+// RightClickPopup represents a popup that appears on right-click
+type RightClickPopup struct {
+	visible     bool
+	position    image.Point
+	closeButton *fromage.ButtonLayout
+	scrimClick  *widget.Clickable
+	theme       *fromage.Theme
 }
 
 // Application state
 type AppState struct {
-	buttons      []PlacedButton
-	nextID       int
-	clickGesture gesture.Click
-	theme        *fromage.Theme
+	rightClickGesture gesture.Click
+	theme             *fromage.Theme
+	popup             *RightClickPopup
 }
 
 var appState *AppState
@@ -55,14 +60,26 @@ func main() {
 
 	// Initialize application state
 	appState = &AppState{
-		buttons: make([]PlacedButton, 0),
-		nextID:  1,
-		theme:   th,
+		theme: th,
+		popup: &RightClickPopup{
+			visible:    false,
+			theme:      th,
+			scrimClick: &widget.Clickable{},
+			closeButton: th.NewButtonLayout().
+				Background(th.Colors.Error()).
+				CornerRadius(0.5).
+				Widget(func(g C) D {
+					return th.Caption("×").
+						Color(th.Colors.OnError()).
+						Alignment(text.Middle).
+						Layout(g)
+				}),
+		},
 	}
 
 	w.Option(
 		app.Size(unit.Dp(1200), unit.Dp(1200)),
-		app.Title("Click to Place Buttons Demo"),
+		app.Title("Right-Click Popup Demo"),
 	)
 	w.Run(loop(w.Window, th))
 }
@@ -91,48 +108,31 @@ func mainUI(gtx layout.Context, th *fromage.Theme, w *fromage.Window) {
 	// Fill background with theme background color
 	paint.Fill(gtx.Ops, th.Colors.Background())
 
-	// Handle click gestures for placing buttons
+	// Register click gesture area for the entire screen (for right-click detection)
+	area := image.Rectangle{Max: gtx.Constraints.Max}
+	defer clip.Rect(area).Push(gtx.Ops).Pop()
+
+	// Handle right-click gestures for showing popup
 	for {
-		ev, ok := appState.clickGesture.Update(gtx.Source)
+		ev, ok := appState.rightClickGesture.Update(gtx.Source)
 		if !ok {
 			break
 		}
 
 		if ev.Kind == gesture.KindClick {
-			// Place a new button at the click position
+			// Show popup at the click position
 			clickPos := image.Pt(int(ev.Position.X), int(ev.Position.Y))
-			placeButton(gtx, th, clickPos)
+			appState.popup.ShowPopup(clickPos, gtx.Constraints.Max)
 		}
 	}
 
-	// Register click gesture area for the entire screen
-	area := image.Rectangle{Max: gtx.Constraints.Max}
-	defer clip.Rect(area).Push(gtx.Ops).Pop()
-	appState.clickGesture.Add(gtx.Ops)
+	// Register right-click gesture area for the entire screen
+	appState.rightClickGesture.Add(gtx.Ops)
 
-	// Layout all placed buttons
-	for i := range appState.buttons {
-		button := &appState.buttons[i]
-
-		// Position the button at its stored position
-		offset := op.Offset(button.Position).Push(gtx.Ops)
-
-		// Check if this button was clicked
-		if button.Button.Clicked(gtx) {
-			log.I.F("Button %d clicked - removing this button", button.ID)
-			removeButton(i)
-			offset.Pop()
-			break // Exit the loop since we modified the slice
-		}
-
-		// Layout the button
-		button.Button.Layout(gtx)
-
-		offset.Pop()
-	}
+	// No buttons to layout - this demo only shows right-click popups
 
 	// Add instructions at the top
-	instructions := th.Body1("Click anywhere to place a small button. Click any button to remove just that button.").
+	instructions := th.Body1("Right-click anywhere to show a popup menu. Click the scrim or close button to dismiss it.").
 		Color(th.Colors.OnBackground()).
 		Alignment(text.Middle)
 
@@ -140,58 +140,118 @@ func mainUI(gtx layout.Context, th *fromage.Theme, w *fromage.Window) {
 	instructionsOffset := op.Offset(image.Pt(gtx.Constraints.Max.X/2, 20)).Push(gtx.Ops)
 	instructions.Layout(gtx)
 	instructionsOffset.Pop()
+
+	// Layout the popup on top of everything
+	appState.popup.Layout(gtx)
 }
 
-// placeButton creates a new button at the specified position
-func placeButton(gtx layout.Context, th *fromage.Theme, position image.Point) {
-	// Calculate button size (3 text heights wide and tall)
-	textHeight := gtx.Dp(unit.Dp(float32(th.TextSize)))
-	buttonSize := textHeight * 3
+// Removed button placement functions - no longer needed
 
-	// Create a new button with fixed size
-	button := th.NewButtonLayout().
-		Background(th.Colors.Primary()).
-		CornerRadius(0.5).
-		Widget(func(g C) D {
-			// Constrain the button to the desired size
-			g.Constraints.Min.X = buttonSize
-			g.Constraints.Max.X = buttonSize
-			g.Constraints.Min.Y = buttonSize
-			g.Constraints.Max.Y = buttonSize
+// ShowPopup shows the popup at the specified position
+func (p *RightClickPopup) ShowPopup(position image.Point, screenSize image.Point) {
+	p.visible = true
+	p.position = p.calculatePopupPosition(position, screenSize)
+	log.I.F("Showing popup at position (%d, %d)", p.position.X, p.position.Y)
+}
 
-			return th.Caption("•").
-				Color(th.Colors.OnPrimary()).
-				Alignment(text.Middle).
-				Layout(g)
-		})
+// HidePopup hides the popup
+func (p *RightClickPopup) HidePopup() {
+	p.visible = false
+	log.I.F("Hiding popup")
+}
 
-	// Create the placed button
-	placedButton := PlacedButton{
-		Position: position,
-		Button:   button,
-		ID:       appState.nextID,
+// calculatePopupPosition calculates where to position the popup so the corner faces away from center
+func (p *RightClickPopup) calculatePopupPosition(clickPos image.Point, screenSize image.Point) image.Point {
+	centerX := screenSize.X / 2
+	centerY := screenSize.Y / 2
+
+	popupWidth := 200  // Approximate popup width
+	popupHeight := 100 // Approximate popup height
+
+	// Determine which corner should face away from center
+	if clickPos.X < centerX {
+		// Click is on left side, position popup to the right
+		if clickPos.Y < centerY {
+			// Click is in top-left, position popup bottom-right of click
+			return image.Pt(clickPos.X, clickPos.Y)
+		} else {
+			// Click is in bottom-left, position popup top-right of click
+			return image.Pt(clickPos.X, clickPos.Y-popupHeight)
+		}
+	} else {
+		// Click is on right side, position popup to the left
+		if clickPos.Y < centerY {
+			// Click is in top-right, position popup bottom-left of click
+			return image.Pt(clickPos.X-popupWidth, clickPos.Y)
+		} else {
+			// Click is in bottom-right, position popup top-left of click
+			return image.Pt(clickPos.X-popupWidth, clickPos.Y-popupHeight)
+		}
+	}
+}
+
+// Layout renders the popup if it's visible
+func (p *RightClickPopup) Layout(gtx C) D {
+	if !p.visible {
+		return D{}
 	}
 
-	// Add to the list
-	appState.buttons = append(appState.buttons, placedButton)
-	appState.nextID++
-
-	log.I.F("Placed button %d at position (%d, %d)", placedButton.ID, position.X, position.Y)
-}
-
-// removeButton removes a button at the specified index
-func removeButton(index int) {
-	if index < 0 || index >= len(appState.buttons) {
-		return
+	// Handle scrim clicks
+	if p.scrimClick.Clicked(gtx) {
+		p.HidePopup()
+		return D{}
 	}
 
-	// Remove the button at the specified index
-	appState.buttons = append(appState.buttons[:index], appState.buttons[index+1:]...)
-	log.I.F("Removed button at index %d", index)
-}
+	// Handle close button clicks
+	if p.closeButton.Clicked(gtx) {
+		p.HidePopup()
+		return D{}
+	}
 
-// clearAllButtons removes all placed buttons
-func clearAllButtons() {
-	appState.buttons = appState.buttons[:0] // Clear the slice
-	log.I.F("Cleared all buttons")
+	// Create scrim (dimmed background)
+	scrimColor := color.NRGBA{R: 0, G: 0, B: 0, A: 128} // 50% opacity black
+	paint.Fill(gtx.Ops, scrimColor)
+
+	// Layout scrim clickable area
+	p.scrimClick.Layout(gtx, func(gtx C) D {
+		return layout.Dimensions{Size: gtx.Constraints.Max}
+	})
+
+	// Position the popup
+	offset := op.Offset(p.position).Push(gtx.Ops)
+	defer offset.Pop()
+
+	// Constrain popup size
+	gtx.Constraints.Min.X = 200
+	gtx.Constraints.Max.X = 200
+	gtx.Constraints.Min.Y = 100
+	gtx.Constraints.Max.Y = 100
+
+	// Create popup background
+	return p.theme.NewCard(
+		func(g C) D {
+			return layout.Flex{
+				Axis: layout.Vertical,
+			}.Layout(g,
+				layout.Rigid(func(gtx C) D {
+					// Title
+					return p.theme.Body2("Right-click Popup").
+						Color(p.theme.Colors.OnSurface()).
+						Alignment(text.Middle).
+						Layout(gtx)
+				}),
+				layout.Rigid(func(gtx C) D {
+					// Content
+					return p.theme.Caption("This popup appeared because you right-clicked!").
+						Color(p.theme.Colors.OnSurfaceVariant()).
+						Alignment(text.Middle).
+						Layout(gtx)
+				}),
+				layout.Rigid(func(gtx C) D {
+					// Close button
+					return p.closeButton.Layout(gtx)
+				}),
+			)
+		},
+	).CornerRadius(8).Padding(unit.Dp(12)).Layout(gtx)
 }

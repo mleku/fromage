@@ -3,16 +3,20 @@ package main
 import (
 	"context"
 	"fmt"
+	"image"
 	"image/color"
 
 	"gio.tools/icons"
 	"gioui.org/app"
 	"gioui.org/font/gofont"
+	"gioui.org/gesture"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/unit"
+	"gioui.org/widget"
 	"github.com/mleku/fromage"
 	"lol.mleku.dev/chk"
 	"lol.mleku.dev/log"
@@ -32,15 +36,26 @@ var (
 	settingsIcon = icons.ActionSettings
 )
 
+// RightClickPopup represents a popup that appears on right-click
+type RightClickPopup struct {
+	visible     bool
+	position    image.Point
+	closeButton *fromage.ButtonLayout
+	scrimClick  *widget.Clickable
+	theme       *fromage.Theme
+}
+
 // Application state struct to hold persistent widgets
 type AppState struct {
-	switchWidget    *fromage.Bool
-	colorSelector   *fromage.ColorSelector
-	checkbox        *fromage.Checkbox
-	modalStack      *fromage.ModalStack
-	verticalRadio   *fromage.RadioButtonGroup
-	horizontalRadio *fromage.RadioButtonGroup
-	intSlider       *fromage.Int
+	switchWidget      *fromage.Bool
+	colorSelector     *fromage.ColorSelector
+	checkbox          *fromage.Checkbox
+	modalStack        *fromage.ModalStack
+	verticalRadio     *fromage.RadioButtonGroup
+	horizontalRadio   *fromage.RadioButtonGroup
+	intSlider         *fromage.Int
+	rightClickGesture gesture.Click
+	popup             *RightClickPopup
 }
 
 var appState *AppState
@@ -90,6 +105,20 @@ func main() {
 			SetHook(func(value int) {
 				log.I.F("[HOOK] Int slider changed to: %d", value)
 			}),
+		popup: &RightClickPopup{
+			visible:    false,
+			theme:      th,
+			scrimClick: &widget.Clickable{},
+			closeButton: th.NewButtonLayout().
+				Background(th.Colors.Error()).
+				CornerRadius(0.5).
+				Widget(func(g C) D {
+					return th.Caption("×").
+						Color(th.Colors.OnError()).
+						Alignment(text.Middle).
+						Layout(g)
+				}),
+		},
 	}
 
 	// Initialize the color selector with the current surface tint
@@ -184,6 +213,25 @@ This modal demonstrates:
 func mainUI(gtx layout.Context, th *fromage.Theme, w *fromage.Window) {
 	// Fill background with theme background color
 	paint.Fill(gtx.Ops, th.Colors.Background())
+
+	// Handle right-click gestures for showing popup
+	for {
+		ev, ok := appState.rightClickGesture.Update(gtx.Source)
+		if !ok {
+			break
+		}
+
+		if ev.Kind == gesture.KindClick {
+			// Show popup at the click position
+			clickPos := image.Pt(int(ev.Position.X), int(ev.Position.Y))
+			appState.popup.ShowPopup(clickPos, gtx.Constraints.Max)
+		}
+	}
+
+	// Register right-click gesture area for the entire screen
+	area := image.Rectangle{Max: gtx.Constraints.Max}
+	defer clip.Rect(area).Push(gtx.Ops).Pop()
+	appState.rightClickGesture.Add(gtx.Ops)
 
 	th.CenteredColumn().
 		Rigid(func(g C) D {
@@ -554,4 +602,116 @@ func mainUI(gtx layout.Context, th *fromage.Theme, w *fromage.Window) {
 	if !appState.modalStack.IsEmpty() {
 		appState.modalStack.Layout(gtx)
 	}
+
+	// Layout the popup on top of everything
+	appState.popup.Layout(gtx)
+}
+
+// ShowPopup shows the popup at the specified position
+func (p *RightClickPopup) ShowPopup(position image.Point, screenSize image.Point) {
+	p.visible = true
+	p.position = p.calculatePopupPosition(position, screenSize)
+	log.I.F("Showing popup at position (%d, %d)", p.position.X, p.position.Y)
+}
+
+// HidePopup hides the popup
+func (p *RightClickPopup) HidePopup() {
+	p.visible = false
+	log.I.F("Hiding popup")
+}
+
+// calculatePopupPosition calculates where to position the popup so the corner faces away from center
+func (p *RightClickPopup) calculatePopupPosition(clickPos image.Point, screenSize image.Point) image.Point {
+	centerX := screenSize.X / 2
+	centerY := screenSize.Y / 2
+
+	popupWidth := 200  // Approximate popup width
+	popupHeight := 100 // Approximate popup height
+
+	// Determine which corner should face away from center
+	if clickPos.X < centerX {
+		// Click is on left side, position popup to the right
+		if clickPos.Y < centerY {
+			// Click is in top-left, position popup bottom-right of click
+			return image.Pt(clickPos.X, clickPos.Y)
+		} else {
+			// Click is in bottom-left, position popup top-right of click
+			return image.Pt(clickPos.X, clickPos.Y-popupHeight)
+		}
+	} else {
+		// Click is on right side, position popup to the left
+		if clickPos.Y < centerY {
+			// Click is in top-right, position popup bottom-left of click
+			return image.Pt(clickPos.X-popupWidth, clickPos.Y)
+		} else {
+			// Click is in bottom-right, position popup top-left of click
+			return image.Pt(clickPos.X-popupWidth, clickPos.Y-popupHeight)
+		}
+	}
+}
+
+// Layout renders the popup if it's visible
+func (p *RightClickPopup) Layout(gtx C) D {
+	if !p.visible {
+		return D{}
+	}
+
+	// Handle scrim clicks
+	if p.scrimClick.Clicked(gtx) {
+		p.HidePopup()
+		return D{}
+	}
+
+	// Handle close button clicks
+	if p.closeButton.Clicked(gtx) {
+		p.HidePopup()
+		return D{}
+	}
+
+	// Create scrim (dimmed background)
+	scrimColor := color.NRGBA{R: 0, G: 0, B: 0, A: 128} // 50% opacity black
+	paint.Fill(gtx.Ops, scrimColor)
+
+	// Layout scrim clickable area
+	p.scrimClick.Layout(gtx, func(gtx C) D {
+		return layout.Dimensions{Size: gtx.Constraints.Max}
+	})
+
+	// Position the popup
+	offset := op.Offset(p.position).Push(gtx.Ops)
+	defer offset.Pop()
+
+	// Constrain popup size
+	gtx.Constraints.Min.X = 200
+	gtx.Constraints.Max.X = 200
+	gtx.Constraints.Min.Y = 100
+	gtx.Constraints.Max.Y = 100
+
+	// Create popup background
+	return p.theme.NewCard(
+		func(g C) D {
+			return layout.Flex{
+				Axis: layout.Vertical,
+			}.Layout(g,
+				layout.Rigid(func(gtx C) D {
+					// Title
+					return p.theme.Body2("Right-click Popup").
+						Color(p.theme.Colors.OnSurface()).
+						Alignment(text.Middle).
+						Layout(gtx)
+				}),
+				layout.Rigid(func(gtx C) D {
+					// Content
+					return p.theme.Caption("This popup appeared because you right-clicked!").
+						Color(p.theme.Colors.OnSurfaceVariant()).
+						Alignment(text.Middle).
+						Layout(gtx)
+				}),
+				layout.Rigid(func(gtx C) D {
+					// Close button
+					return p.closeButton.Layout(gtx)
+				}),
+			)
+		},
+	).CornerRadius(8).Padding(unit.Dp(12)).Layout(gtx)
 }
