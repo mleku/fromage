@@ -6,6 +6,7 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"time"
 
 	"gioui.org/app"
 	"gioui.org/font/gofont"
@@ -37,23 +38,23 @@ var (
 	// Lower mass = less impulse needed = more responsive feeling
 	// Range: 0.1 (very responsive) to 10.0 (very sluggish)
 	// Reduced by 1000x for much lighter viewport
-	PhysicsMass float32 = 0.001
+	PhysicsMass float32 = 1000
 
 	// Impulse strength per scroll event (pixels per second)
 	// This is the base impulse before mass is applied
 	// Quadrupled for 4x faster velocity, then 4x more for 4x scroll distance, then 100x more
-	BaseImpulseStrength float32 = 160000.0
+	BaseImpulseStrength float32 = 610000.0
 
 	// Mouse scroll energy multiplier - makes mouse scrolling more powerful
 	// Higher values = more energy per mouse scroll event
 	// Range: 1.0 (same as keyboard) to 10.0 (very powerful)
-	MouseScrollMultiplier float32 = 3.0
+	MouseScrollMultiplier float32 = 0.0002
 
 	// Momentum mass - affects how long motion continues after input stops
 	// Higher values = longer momentum, more continuous motion
 	// Lower values = motion stops more quickly
 	// Range: 0.1 (stops quickly) to 10.0 (very long momentum)
-	MomentumMass float32 = 5.0
+	MomentumMass float32 = 5 // Much lower for very quick stopping
 )
 
 // RedCornerOutline creates a widget that draws a red 1px square corner outline
@@ -191,20 +192,7 @@ func loop(w *app.Window, th *fromage.Theme, window *fromage.Window) func() {
 		})
 	modalStack := th.NewModalStack()
 
-	// Global menu for right-click context menu
-	globalMenu := th.NewGlobalMenu().
-		AddItem("Reset View", func() {
-			// Reset scroll position to top-left
-			fmt.Println("Reset view clicked")
-		}).
-		AddItem("Center View", func() {
-			// Center the view
-			fmt.Println("Center view clicked")
-		}).
-		AddItem("Toggle Theme", func() {
-			// Toggle between light and dark theme
-			fmt.Println("Toggle theme clicked")
-		})
+	// Global menu removed - no right-click context menu
 
 	// Scroll gesture for handling scroll wheel events
 	scrollGesture := gesture.Scroll{}
@@ -231,12 +219,21 @@ func loop(w *app.Window, th *fromage.Theme, window *fromage.Window) func() {
 	}
 
 	// Initialize physics parameters
-	physicsState.friction = 0.9999 // Much lower energy loss for longer momentum
-	physicsState.maxSpeed = 5000.0
+	physicsState.friction = 0.89 // Much higher friction for faster deceleration
+	physicsState.maxSpeed = 50000.0
 	physicsState.bounceRetention = 0.5
 
 	// Keyboard event flags for direct scrolling
 	var keyUpPressed, keyDownPressed, keyLeftPressed, keyRightPressed bool
+	var pageUpPressed, pageDownPressed bool
+	var homePressed, endPressed bool
+
+	// Keyboard state tracking for acceleration
+	var keyStates struct {
+		upPressed, downPressed, leftPressed, rightPressed                     bool
+		upStartTime, downStartTime, leftStartTime, rightStartTime             int64
+		upAcceleration, downAcceleration, leftAcceleration, rightAcceleration int
+	}
 
 	return func() {
 		var ops op.Ops
@@ -260,6 +257,10 @@ func loop(w *app.Window, th *fromage.Theme, window *fromage.Window) func() {
 						key.Filter{Name: key.NameDownArrow},
 						key.Filter{Name: key.NameLeftArrow},
 						key.Filter{Name: key.NameRightArrow},
+						key.Filter{Name: key.NamePageUp},
+						key.Filter{Name: key.NamePageDown},
+						key.Filter{Name: key.NameHome},
+						key.Filter{Name: key.NameEnd},
 					)
 					if !ok {
 						break
@@ -267,35 +268,109 @@ func loop(w *app.Window, th *fromage.Theme, window *fromage.Window) func() {
 					switch event := event.(type) {
 					case key.Event:
 						fmt.Printf("Key event: %s, state: %s\n", event.Name, event.State)
-						if event.State == key.Press {
-							switch event.Name {
-							case key.NameUpArrow:
-								// Direct upward scroll movement
+						now := time.Now().UnixNano()
+
+						switch event.Name {
+						case key.NameUpArrow:
+							if event.State == key.Press && !keyStates.upPressed {
+								// Key pressed down - start tracking
+								keyStates.upPressed = true
+								keyStates.upStartTime = now
+								keyStates.upAcceleration = 0
 								keyUpPressed = true
-								fmt.Println("UP ARROW PRESSED - Direct upward scroll")
-							case key.NameDownArrow:
-								// Direct downward scroll movement
+								fmt.Println("UP ARROW PRESSED - Starting scroll")
+							} else if event.State == key.Release && keyStates.upPressed {
+								// Key released - stop tracking
+								keyStates.upPressed = false
+								keyStates.upAcceleration = 0
+								keyUpPressed = false // Clear the physics flag too
+								fmt.Println("UP ARROW RELEASED - Stopping scroll")
+							}
+						case key.NameDownArrow:
+							if event.State == key.Press && !keyStates.downPressed {
+								// Key pressed down - start tracking
+								keyStates.downPressed = true
+								keyStates.downStartTime = now
+								keyStates.downAcceleration = 0
 								keyDownPressed = true
-								fmt.Println("DOWN ARROW PRESSED - Direct downward scroll")
-							case key.NameLeftArrow:
-								// Direct leftward scroll movement
+								fmt.Println("DOWN ARROW PRESSED - Starting scroll")
+							} else if event.State == key.Release && keyStates.downPressed {
+								// Key released - stop tracking
+								keyStates.downPressed = false
+								keyStates.downAcceleration = 0
+								keyDownPressed = false // Clear the physics flag too
+								fmt.Println("DOWN ARROW RELEASED - Stopping scroll")
+							}
+						case key.NameLeftArrow:
+							if event.State == key.Press && !keyStates.leftPressed {
+								// Key pressed down - start tracking
+								keyStates.leftPressed = true
+								keyStates.leftStartTime = now
+								keyStates.leftAcceleration = 0
 								keyLeftPressed = true
-								fmt.Println("LEFT ARROW PRESSED - Direct leftward scroll")
-							case key.NameRightArrow:
-								// Direct rightward scroll movement
+								fmt.Println("LEFT ARROW PRESSED - Starting scroll")
+							} else if event.State == key.Release && keyStates.leftPressed {
+								// Key released - stop tracking
+								keyStates.leftPressed = false
+								keyStates.leftAcceleration = 0
+								keyLeftPressed = false // Clear the physics flag too
+								fmt.Println("LEFT ARROW RELEASED - Stopping scroll")
+							}
+						case key.NameRightArrow:
+							if event.State == key.Press && !keyStates.rightPressed {
+								// Key pressed down - start tracking
+								keyStates.rightPressed = true
+								keyStates.rightStartTime = now
+								keyStates.rightAcceleration = 0
 								keyRightPressed = true
-								fmt.Println("RIGHT ARROW PRESSED - Direct rightward scroll")
+								fmt.Println("RIGHT ARROW PRESSED - Starting scroll")
+							} else if event.State == key.Release && keyStates.rightPressed {
+								// Key released - stop tracking
+								keyStates.rightPressed = false
+								keyStates.rightAcceleration = 0
+								keyRightPressed = false // Clear the physics flag too
+								fmt.Println("RIGHT ARROW RELEASED - Stopping scroll")
+							}
+						case key.NamePageUp:
+							if event.State == key.Press {
+								// Page Up - scroll up one screenful smoothly in 250ms
+								pageUpPressed = true
+								fmt.Println("PAGE UP PRESSED - Scrolling up one screenful")
+							}
+						case key.NamePageDown:
+							if event.State == key.Press {
+								// Page Down - scroll down one screenful smoothly in 250ms
+								pageDownPressed = true
+								fmt.Println("PAGE DOWN PRESSED - Scrolling down one screenful")
+							}
+						case key.NameHome:
+							if event.State == key.Press {
+								// Home - scroll left one screenful smoothly in 250ms
+								homePressed = true
+								fmt.Println("HOME PRESSED - Scrolling left one screenful")
+							}
+						case key.NameEnd:
+							if event.State == key.Press {
+								// End - scroll right one screenful smoothly in 250ms
+								endPressed = true
+								fmt.Println("END PRESSED - Scrolling right one screenful")
 							}
 						}
 					}
 				}
 				area.Pop()
 
-				mainUI(gtx, th, window, horizontalScrollbar, verticalScrollbar, testButton, modalStack, globalMenu, &scrollGesture, pointerTag, gestureTag, &horizontalPos, &verticalPos, &keyUpPressed, &keyDownPressed, &keyLeftPressed, &keyRightPressed, &physicsState)
+				mainUI(gtx, th, window, horizontalScrollbar, verticalScrollbar, testButton, modalStack, &scrollGesture, pointerTag, gestureTag, &horizontalPos, &verticalPos, &keyUpPressed, &keyDownPressed, &keyLeftPressed, &keyRightPressed, &pageUpPressed, &pageDownPressed, &homePressed, &endPressed, &physicsState, &keyStates)
 
 				// Note: Scrollbar positions are now controlled by physics system
 				// No need to update from scrollbar changes since physics sets them directly
 				e.Frame(gtx.Ops)
+
+				// Invalidate the window to continue animation if physics is active
+				// This ensures smooth animation continues until inertia decays
+				if physicsState.velocityX != 0.0 || physicsState.velocityY != 0.0 {
+					w.Invalidate()
+				}
 			}
 		}
 	}
@@ -303,15 +378,20 @@ func loop(w *app.Window, th *fromage.Theme, window *fromage.Window) func() {
 
 func mainUI(gtx layout.Context, th *fromage.Theme, window *fromage.Window,
 	horizontalScrollbar, verticalScrollbar *fromage.Scrollbar,
-	testButton *fromage.ButtonLayout, modalStack *fromage.ModalStack, globalMenu *fromage.GlobalMenu,
+	testButton *fromage.ButtonLayout, modalStack *fromage.ModalStack,
 	scrollGesture *gesture.Scroll, pointerTag, gestureTag interface{},
-	horizontalPos, verticalPos *float32, keyUpPressed, keyDownPressed, keyLeftPressed, keyRightPressed *bool,
+	horizontalPos, verticalPos *float32, keyUpPressed, keyDownPressed, keyLeftPressed, keyRightPressed, pageUpPressed, pageDownPressed, homePressed, endPressed *bool,
 	physicsState *struct {
 		velocityX, velocityY float32
 		positionX, positionY float32
 		friction             float32
 		maxSpeed             float32
 		bounceRetention      float32
+	},
+	keyStates *struct {
+		upPressed, downPressed, leftPressed, rightPressed                     bool
+		upStartTime, downStartTime, leftStartTime, rightStartTime             int64
+		upAcceleration, downAcceleration, leftAcceleration, rightAcceleration int
 	}) {
 
 	// Fill background with theme background color
@@ -480,40 +560,133 @@ func mainUI(gtx layout.Context, th *fromage.Theme, window *fromage.Window,
 		}
 	}
 
-	// Handle keyboard events - add impulse to physics
+	// Handle keyboard events with impulse-based acceleration (like mouse events)
+	now := time.Now().UnixNano()
+
+	// Helper function to calculate acceleration multiplier
+	calculateAcceleration := func(startTime int64, currentAcceleration int) int {
+		elapsedSeconds := float64(now-startTime) / 1e9
+		if elapsedSeconds < 1.0 {
+			return 0 // No acceleration for first second
+		}
+		// After 1 second, start with 2x, then double every 2 seconds
+		accelerationLevel := int((elapsedSeconds-1.0)/2.0) + 1
+		return accelerationLevel
+	}
+
+	// Handle up arrow - apply impulse when key is first pressed
 	if *keyUpPressed {
 		*keyUpPressed = false // Reset flag
 		if scrollableHeight > 0 {
-			// Up arrow - add downward impulse
-			physicsState.velocityY -= keyboardImpulseStrength
-			fmt.Printf("UP ARROW: Added downward impulse, velocity: %.1f px/s (keyboard: %.1f)\n", physicsState.velocityY, keyboardImpulseStrength)
+			// Calculate acceleration based on how long key has been held
+			keyStates.upAcceleration = calculateAcceleration(keyStates.upStartTime, keyStates.upAcceleration)
+			accelerationMultiplier := float32(math.Pow(2, float64(keyStates.upAcceleration))) // 2^accelerationLevel
+
+			// Up arrow - add downward impulse with acceleration
+			impulse := keyboardImpulseStrength * accelerationMultiplier
+			physicsState.velocityY -= impulse
+			fmt.Printf("UP ARROW: Added downward impulse, velocity: %.1f px/s (keyboard: %.1f, accel: %dx)\n",
+				physicsState.velocityY, impulse, int(accelerationMultiplier))
 		}
 	}
 
+	// Handle down arrow - apply impulse when key is first pressed
 	if *keyDownPressed {
 		*keyDownPressed = false // Reset flag
 		if scrollableHeight > 0 {
-			// Down arrow - add upward impulse
-			physicsState.velocityY += keyboardImpulseStrength
-			fmt.Printf("DOWN ARROW: Added upward impulse, velocity: %.1f px/s (keyboard: %.1f)\n", physicsState.velocityY, keyboardImpulseStrength)
+			// Calculate acceleration based on how long key has been held
+			keyStates.downAcceleration = calculateAcceleration(keyStates.downStartTime, keyStates.downAcceleration)
+			accelerationMultiplier := float32(math.Pow(2, float64(keyStates.downAcceleration))) // 2^accelerationLevel
+
+			// Down arrow - add upward impulse with acceleration
+			impulse := keyboardImpulseStrength * accelerationMultiplier
+			physicsState.velocityY += impulse
+			fmt.Printf("DOWN ARROW: Added upward impulse, velocity: %.1f px/s (keyboard: %.1f, accel: %dx)\n",
+				physicsState.velocityY, impulse, int(accelerationMultiplier))
 		}
 	}
 
+	// Handle left arrow - apply impulse when key is first pressed
 	if *keyLeftPressed {
 		*keyLeftPressed = false // Reset flag
 		if scrollableWidth > 0 {
-			// Left arrow - add rightward impulse
-			physicsState.velocityX -= keyboardImpulseStrength
-			fmt.Printf("LEFT ARROW: Added rightward impulse, velocity: %.1f px/s (keyboard: %.1f)\n", physicsState.velocityX, keyboardImpulseStrength)
+			// Calculate acceleration based on how long key has been held
+			keyStates.leftAcceleration = calculateAcceleration(keyStates.leftStartTime, keyStates.leftAcceleration)
+			accelerationMultiplier := float32(math.Pow(2, float64(keyStates.leftAcceleration))) // 2^accelerationLevel
+
+			// Left arrow - add rightward impulse with acceleration
+			impulse := keyboardImpulseStrength * accelerationMultiplier
+			physicsState.velocityX -= impulse
+			fmt.Printf("LEFT ARROW: Added rightward impulse, velocity: %.1f px/s (keyboard: %.1f, accel: %dx)\n",
+				physicsState.velocityX, impulse, int(accelerationMultiplier))
 		}
 	}
 
+	// Handle right arrow - apply impulse when key is first pressed
 	if *keyRightPressed {
 		*keyRightPressed = false // Reset flag
 		if scrollableWidth > 0 {
-			// Right arrow - add leftward impulse
-			physicsState.velocityX += keyboardImpulseStrength
-			fmt.Printf("RIGHT ARROW: Added leftward impulse, velocity: %.1f px/s (keyboard: %.1f)\n", physicsState.velocityX, keyboardImpulseStrength)
+			// Calculate acceleration based on how long key has been held
+			keyStates.rightAcceleration = calculateAcceleration(keyStates.rightStartTime, keyStates.rightAcceleration)
+			accelerationMultiplier := float32(math.Pow(2, float64(keyStates.rightAcceleration))) // 2^accelerationLevel
+
+			// Right arrow - add leftward impulse with acceleration
+			impulse := keyboardImpulseStrength * accelerationMultiplier
+			physicsState.velocityX += impulse
+			fmt.Printf("RIGHT ARROW: Added leftward impulse, velocity: %.1f px/s (keyboard: %.1f, accel: %dx)\n",
+				physicsState.velocityX, impulse, int(accelerationMultiplier))
+		}
+	}
+
+	// Handle Page Up - scroll up one screenful smoothly in 250ms
+	if *pageUpPressed {
+		*pageUpPressed = false // Reset flag
+		if scrollableHeight > 0 {
+			// Calculate velocity needed to scroll one screenful in 250ms
+			// One screenful = contentAreaHeight pixels
+			// Velocity = distance / time = contentAreaHeight / 0.25 seconds
+			pageScrollVelocity := float32(contentAreaHeight) / 0.25
+			physicsState.velocityY = -pageScrollVelocity // Negative for upward scroll
+			fmt.Printf("PAGE UP: Set velocity to scroll one screenful up: %.1f px/s\n", pageScrollVelocity)
+		}
+	}
+
+	// Handle Page Down - scroll down one screenful smoothly in 250ms
+	if *pageDownPressed {
+		*pageDownPressed = false // Reset flag
+		if scrollableHeight > 0 {
+			// Calculate velocity needed to scroll one screenful in 250ms
+			// One screenful = contentAreaHeight pixels
+			// Velocity = distance / time = contentAreaHeight / 0.25 seconds
+			pageScrollVelocity := float32(contentAreaHeight) / 0.25
+			physicsState.velocityY = pageScrollVelocity // Positive for downward scroll
+			fmt.Printf("PAGE DOWN: Set velocity to scroll one screenful down: %.1f px/s\n", pageScrollVelocity)
+		}
+	}
+
+	// Handle Home - scroll left one screenful smoothly in 250ms
+	if *homePressed {
+		*homePressed = false // Reset flag
+		if scrollableWidth > 0 {
+			// Calculate velocity needed to scroll one screenful in 250ms
+			// One screenful = contentAreaWidth pixels
+			// Velocity = distance / time = contentAreaWidth / 0.25 seconds
+			pageScrollVelocity := float32(contentAreaWidth) / 0.25
+			physicsState.velocityX = -pageScrollVelocity // Negative for leftward scroll
+			fmt.Printf("HOME: Set velocity to scroll one screenful left: %.1f px/s\n", pageScrollVelocity)
+		}
+	}
+
+	// Handle End - scroll right one screenful smoothly in 250ms
+	if *endPressed {
+		*endPressed = false // Reset flag
+		if scrollableWidth > 0 {
+			// Calculate velocity needed to scroll one screenful in 250ms
+			// One screenful = contentAreaWidth pixels
+			// Velocity = distance / time = contentAreaWidth / 0.25 seconds
+			pageScrollVelocity := float32(contentAreaWidth) / 0.25
+			physicsState.velocityX = pageScrollVelocity // Positive for rightward scroll
+			fmt.Printf("END: Set velocity to scroll one screenful right: %.1f px/s\n", pageScrollVelocity)
 		}
 	}
 
@@ -587,11 +760,11 @@ func mainUI(gtx layout.Context, th *fromage.Theme, window *fromage.Window,
 	physicsState.velocityY *= momentumFriction
 
 	// Stop very small velocities to prevent infinite tiny movements
-	// Increased threshold due to high velocities and low friction
-	if math.Abs(float64(physicsState.velocityX)) < 100.0 {
+	// Much higher threshold for faster stopping
+	if math.Abs(float64(physicsState.velocityX)) < 500.0 {
 		physicsState.velocityX = 0.0
 	}
-	if math.Abs(float64(physicsState.velocityY)) < 100.0 {
+	if math.Abs(float64(physicsState.velocityY)) < 500.0 {
 		physicsState.velocityY = 0.0
 	}
 
@@ -714,13 +887,7 @@ func mainUI(gtx layout.Context, th *fromage.Theme, window *fromage.Window,
 		})
 	}
 
-	// Handle global menu events
-	globalMenu.HandleEvents(gtx)
-
-	// Layout the global menu
-	if globalMenu.IsVisible() {
-		globalMenu.Layout(gtx)
-	}
+	// Global menu removed - no right-click context menu handling
 
 	// Layout the modal stack on top of everything
 	if !modalStack.IsEmpty() {
