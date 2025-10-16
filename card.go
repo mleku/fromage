@@ -128,20 +128,18 @@ func (t *Theme) CardError(widget W) *Card {
 func (t *Theme) CardWithTitle(title string, content W) *Card {
 	// Create a vertical layout with title and content
 	cardContent := func(gtx C) D {
-		return layout.Flex{
-			Axis:    layout.Vertical,
-			Spacing: layout.SpaceStart,
-		}.Layout(gtx,
-			layout.Rigid(func(gtx C) D {
+		return t.VFlex().
+			SpaceStart().
+			Rigid(func(gtx C) D {
 				// Title label
 				label := t.NewLabel().Text(title).Color(t.Colors.OnSurface()).TextScale(1.2) // Slightly larger for title
 				return label.Layout(gtx)
-			}),
-			layout.Rigid(func(gtx C) D {
+			}).
+			Rigid(func(gtx C) D {
 				// Content
 				return content(gtx)
-			}),
-		)
+			}).
+			Layout(gtx)
 	}
 
 	return t.NewCard(cardContent)
@@ -151,20 +149,18 @@ func (t *Theme) CardWithTitle(title string, content W) *Card {
 func (t *Theme) CardWithTitleAndColor(title string, backgroundColor color.NRGBA, content W) *Card {
 	// Create a vertical layout with title and content
 	cardContent := func(gtx C) D {
-		return layout.Flex{
-			Axis:    layout.Vertical,
-			Spacing: layout.SpaceStart,
-		}.Layout(gtx,
-			layout.Rigid(func(gtx C) D {
+		return t.VFlex().
+			SpaceStart().
+			Rigid(func(gtx C) D {
 				// Title label
 				label := t.NewLabel().Text(title).Color(t.Colors.OnSurface()).TextScale(1.2) // Slightly larger for title
 				return label.Layout(gtx)
-			}),
-			layout.Rigid(func(gtx C) D {
+			}).
+			Rigid(func(gtx C) D {
 				// Content
 				return content(gtx)
-			}),
-		)
+			}).
+			Layout(gtx)
 	}
 
 	return t.NewCardWithColor(backgroundColor, cardContent)
@@ -174,19 +170,12 @@ func (t *Theme) CardWithTitleAndColor(title string, backgroundColor color.NRGBA,
 func (t *Theme) CardList(widgets ...W) W {
 	return func(gtx C) D {
 		// Create a vertical list of cards
-		return layout.Flex{
-			Axis:    layout.Vertical,
-			Spacing: layout.SpaceStart,
-		}.Layout(gtx,
-			func() []layout.FlexChild {
-				children := make([]layout.FlexChild, len(widgets))
-				for i, widget := range widgets {
-					card := t.NewCard(widget)
-					children[i] = layout.Rigid(card.Layout)
-				}
-				return children
-			}()...,
-		)
+		flex := t.VFlex().SpaceStart()
+		for _, widget := range widgets {
+			card := t.NewCard(widget)
+			flex = flex.Rigid(card.Layout)
+		}
+		return flex.Layout(gtx)
 	}
 }
 
@@ -194,26 +183,17 @@ func (t *Theme) CardList(widgets ...W) W {
 func (t *Theme) CardListWithSpacing(spacing unit.Dp, widgets ...W) W {
 	return func(gtx C) D {
 		// Create a vertical list of cards with spacing
-		return layout.Flex{
-			Axis:    layout.Vertical,
-			Spacing: layout.SpaceStart,
-		}.Layout(gtx,
-			func() []layout.FlexChild {
-				children := make([]layout.FlexChild, len(widgets))
-				for i, widget := range widgets {
-					card := t.NewCard(widget)
-					if i > 0 {
-						// Add spacing between cards
-						children[i] = layout.Rigid(func(gtx C) D {
-							return layout.Spacer{Height: spacing}.Layout(gtx)
-						})
-						children = append(children, layout.Rigid(card.Layout))
-					} else {
-						children[i] = layout.Rigid(card.Layout)
-					}
-				}
-				return children
-			}()...,
-		)
+		flex := t.VFlex().SpaceStart()
+		for i, widget := range widgets {
+			if i > 0 {
+				// Add spacing between cards
+				flex = flex.Rigid(func(gtx C) D {
+					return layout.Spacer{Height: spacing}.Layout(gtx)
+				})
+			}
+			card := t.NewCard(widget)
+			flex = flex.Rigid(card.Layout)
+		}
+		return flex.Layout(gtx)
 	}
 }

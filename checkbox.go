@@ -183,22 +183,21 @@ func (c *Checkbox) Layout(g C) D {
 		semantic.CheckBox.Add(g.Ops)
 
 		// Layout checkbox and label horizontally
-		return layout.Flex{
-			Alignment: layout.Middle,
-			Spacing:   layout.SpaceStart,
-		}.Layout(g,
-			layout.Rigid(func(g C) D {
+		return c.theme.HFlex().
+			AlignMiddle().
+			SpaceStart().
+			Rigid(func(g C) D {
 				// Draw the checkbox square
 				return c.drawCheckbox(g, checkboxSize)
-			}),
-			layout.Rigid(func(g C) D {
+			}).
+			Rigid(func(g C) D {
 				// Add spacing between checkbox and label
 				return layout.Inset{Left: unit.Dp(8)}.Layout(g, func(g C) D {
 					// Draw the label text
 					return c.drawLabel(g, textSize)
 				})
-			}),
-		)
+			}).
+			Layout(g)
 	})
 }
 

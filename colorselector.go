@@ -97,62 +97,58 @@ func (cs *ColorSelector) SetSaturation(saturation float32) *ColorSelector {
 
 // Layout renders the color selector
 func (cs *ColorSelector) Layout(gtx layout.Context, th *Theme) layout.Dimensions {
-	return layout.Flex{
-		Axis: layout.Vertical,
-	}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	return th.VFlex().
+		Rigid(func(gtx layout.Context) layout.Dimensions {
 			// Tone slider
 			return cs.createSliderRow(gtx, th, "Tone", cs.tone)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		}).
+		Rigid(func(gtx layout.Context) layout.Dimensions {
 			// Spacer
 			return layout.Spacer{Height: unit.Dp(5)}.Layout(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		}).
+		Rigid(func(gtx layout.Context) layout.Dimensions {
 			// Hue slider
 			return cs.createSliderRow(gtx, th, "Hue", cs.hue)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		}).
+		Rigid(func(gtx layout.Context) layout.Dimensions {
 			// Spacer
 			return layout.Spacer{Height: unit.Dp(5)}.Layout(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		}).
+		Rigid(func(gtx layout.Context) layout.Dimensions {
 			// Saturation slider
 			return cs.createSliderRow(gtx, th, "Saturation", cs.saturation)
-		}),
-	)
+		}).
+		Layout(gtx)
 }
 
 // createSliderRow creates a row with label, slider, and value
 func (cs *ColorSelector) createSliderRow(gtx layout.Context, th *Theme, label string, slider *Float) layout.Dimensions {
-	return layout.Flex{
-		Axis: layout.Horizontal,
-	}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	return th.HFlex().
+		Rigid(func(gtx layout.Context) layout.Dimensions {
 			// Label
 			return th.Caption(label).Layout(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		}).
+		Rigid(func(gtx layout.Context) layout.Dimensions {
 			// Spacer
 			return layout.Spacer{Width: unit.Dp(10)}.Layout(gtx)
-		}),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+		}).
+		Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			// Slider - constrain to full width minus padding
 			textHeight := gtx.Dp(th.TextSize)
 			gtx.Constraints.Min.X = gtx.Constraints.Max.X - textHeight*2 // Leave space for padding
 			return slider.Layout(gtx, th)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		}).
+		Rigid(func(gtx layout.Context) layout.Dimensions {
 			// Spacer
 			return layout.Spacer{Width: unit.Dp(10)}.Layout(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		}).
+		Rigid(func(gtx layout.Context) layout.Dimensions {
 			// Value display with 4 decimal places
 			value := slider.Value()
 			valueStr := fmt.Sprintf("%.4f", value)
 			return th.Caption(valueStr).Layout(gtx)
-		}),
-	)
+		}).
+		Layout(gtx)
 }
 
 // hsvToRgb converts HSV to RGB

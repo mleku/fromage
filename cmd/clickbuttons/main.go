@@ -230,28 +230,26 @@ func (p *RightClickPopup) Layout(gtx C) D {
 	// Create popup background
 	return p.theme.NewCard(
 		func(g C) D {
-			return layout.Flex{
-				Axis: layout.Vertical,
-			}.Layout(g,
-				layout.Rigid(func(gtx C) D {
+			return p.theme.VFlex().
+				Rigid(func(gtx C) D {
 					// Title
 					return p.theme.Body2("Right-click Popup").
 						Color(p.theme.Colors.OnSurface()).
 						Alignment(text.Middle).
 						Layout(gtx)
-				}),
-				layout.Rigid(func(gtx C) D {
+				}).
+				Rigid(func(gtx C) D {
 					// Content
 					return p.theme.Caption("This popup appeared because you right-clicked!").
 						Color(p.theme.Colors.OnSurfaceVariant()).
 						Alignment(text.Middle).
 						Layout(gtx)
-				}),
-				layout.Rigid(func(gtx C) D {
+				}).
+				Rigid(func(gtx C) D {
 					// Close button
 					return p.closeButton.Layout(gtx)
-				}),
-			)
+				}).
+				Layout(g)
 		},
 	).CornerRadius(8).Padding(unit.Dp(12)).Layout(gtx)
 }

@@ -99,80 +99,76 @@ func mainUI(gtx layout.Context, th *fromage.Theme) {
 	customCard := th.CardWithTitleAndColor("Custom Card", th.Colors.Secondary(), cardContent)
 
 	// Layout all cards in a vertical list
-	layout.Flex{
-		Axis:    layout.Vertical,
-		Spacing: layout.SpaceStart,
-	}.Layout(gtx,
-		layout.Rigid(func(gtx C) D {
+	th.VFlex().
+		SpaceStart().
+		Rigid(func(gtx C) D {
 			return th.H1("Card Widget Demo").Color(th.Colors.OnBackground()).Layout(gtx)
-		}),
-		layout.Rigid(func(gtx C) D {
+		}).
+		Rigid(func(gtx C) D {
 			return layout.Spacer{Height: unit.Dp(10)}.Layout(gtx)
-		}),
-		layout.Rigid(func(gtx C) D {
+		}).
+		Rigid(func(gtx C) D {
 			// Theme toggle section
-			return layout.Flex{
-				Axis:    layout.Horizontal,
-				Spacing: layout.SpaceStart,
-			}.Layout(gtx,
-				layout.Rigid(func(gtx C) D {
+			return th.HFlex().
+				SpaceStart().
+				Rigid(func(gtx C) D {
 					return appState.themeToggle.Layout(gtx)
-				}),
-				layout.Rigid(func(gtx C) D {
+				}).
+				Rigid(func(gtx C) D {
 					return layout.Spacer{Width: unit.Dp(10)}.Layout(gtx)
-				}),
-				layout.Rigid(func(gtx C) D {
+				}).
+				Rigid(func(gtx C) D {
 					// Show current theme mode
 					themeText := "Light"
 					if th.IsDark() {
 						themeText = "Dark"
 					}
 					return th.Body1(themeText).Color(th.Colors.OnBackground()).Layout(gtx)
-				}),
-			)
-		}),
-		layout.Rigid(func(gtx C) D {
+				}).
+				Layout(gtx)
+		}).
+		Rigid(func(gtx C) D {
 			return layout.Spacer{Height: unit.Dp(20)}.Layout(gtx)
-		}),
-		layout.Rigid(func(gtx C) D {
+		}).
+		Rigid(func(gtx C) D {
 			return th.H2("Primary Card").Color(th.Colors.OnBackground()).Layout(gtx)
-		}),
-		layout.Rigid(primaryCard.Layout),
-		layout.Rigid(func(gtx C) D {
+		}).
+		Rigid(primaryCard.Layout).
+		Rigid(func(gtx C) D {
 			return layout.Spacer{Height: unit.Dp(10)}.Layout(gtx)
-		}),
-		layout.Rigid(func(gtx C) D {
+		}).
+		Rigid(func(gtx C) D {
 			return th.H3("Surface Card").Color(th.Colors.OnBackground()).Layout(gtx)
-		}),
-		layout.Rigid(surfaceCard.Layout),
-		layout.Rigid(func(gtx C) D {
+		}).
+		Rigid(surfaceCard.Layout).
+		Rigid(func(gtx C) D {
 			return layout.Spacer{Height: unit.Dp(10)}.Layout(gtx)
-		}),
-		layout.Rigid(func(gtx C) D {
+		}).
+		Rigid(func(gtx C) D {
 			return th.H4("Error Card").Color(th.Colors.OnBackground()).Layout(gtx)
-		}),
-		layout.Rigid(errorCard.Layout),
-		layout.Rigid(func(gtx C) D {
+		}).
+		Rigid(errorCard.Layout).
+		Rigid(func(gtx C) D {
 			return layout.Spacer{Height: unit.Dp(10)}.Layout(gtx)
-		}),
-		layout.Rigid(func(gtx C) D {
+		}).
+		Rigid(func(gtx C) D {
 			return th.H3("Card with Title").Color(th.Colors.OnBackground()).Layout(gtx)
-		}),
-		layout.Rigid(titleCard.Layout),
-		layout.Rigid(func(gtx C) D {
+		}).
+		Rigid(titleCard.Layout).
+		Rigid(func(gtx C) D {
 			return layout.Spacer{Height: unit.Dp(10)}.Layout(gtx)
-		}),
-		layout.Rigid(func(gtx C) D {
+		}).
+		Rigid(func(gtx C) D {
 			return th.H3("Custom Card").Color(th.Colors.OnBackground()).Layout(gtx)
-		}),
-		layout.Rigid(customCard.Layout),
-		layout.Rigid(func(gtx C) D {
+		}).
+		Rigid(customCard.Layout).
+		Rigid(func(gtx C) D {
 			return layout.Spacer{Height: unit.Dp(10)}.Layout(gtx)
-		}),
-		layout.Rigid(func(gtx C) D {
+		}).
+		Rigid(func(gtx C) D {
 			return th.H3("Card with Inset").Color(th.Colors.OnBackground()).Layout(gtx)
-		}),
-		layout.Rigid(func(gtx C) D {
+		}).
+		Rigid(func(gtx C) D {
 			// Create a card with inset padding
 			insetCard := th.CardPrimary(func(gtx C) D {
 				// Create an inset with 1.0 padding (scaled by text size)
@@ -183,14 +179,14 @@ func mainUI(gtx layout.Context, th *fromage.Theme) {
 				return inset.Fn(gtx)
 			})
 			return insetCard.Layout(gtx)
-		}),
-		layout.Rigid(func(gtx C) D {
+		}).
+		Rigid(func(gtx C) D {
 			return layout.Spacer{Height: unit.Dp(10)}.Layout(gtx)
-		}),
-		layout.Rigid(func(gtx C) D {
+		}).
+		Rigid(func(gtx C) D {
 			return th.H3("Card with Different Inset Values").Color(th.Colors.OnBackground()).Layout(gtx)
-		}),
-		layout.Rigid(func(gtx C) D {
+		}).
+		Rigid(func(gtx C) D {
 			// Create a card with different inset values
 			insetCard := th.CardSurface(func(gtx C) D {
 				// Create an inset with 0.5 padding (smaller padding)
@@ -201,6 +197,6 @@ func mainUI(gtx layout.Context, th *fromage.Theme) {
 				return inset.Fn(gtx)
 			})
 			return insetCard.Layout(gtx)
-		}),
-	)
+		}).
+		Layout(gtx)
 }

@@ -191,6 +191,21 @@ func loop(w *app.Window, th *fromage.Theme, window *fromage.Window) func() {
 		})
 	modalStack := th.NewModalStack()
 
+	// Global menu for right-click context menu
+	globalMenu := th.NewGlobalMenu().
+		AddItem("Reset View", func() {
+			// Reset scroll position to top-left
+			fmt.Println("Reset view clicked")
+		}).
+		AddItem("Center View", func() {
+			// Center the view
+			fmt.Println("Center view clicked")
+		}).
+		AddItem("Toggle Theme", func() {
+			// Toggle between light and dark theme
+			fmt.Println("Toggle theme clicked")
+		})
+
 	// Scroll gesture for handling scroll wheel events
 	scrollGesture := gesture.Scroll{}
 	// Pointer tag for top-level events
@@ -276,7 +291,7 @@ func loop(w *app.Window, th *fromage.Theme, window *fromage.Window) func() {
 				}
 				area.Pop()
 
-				mainUI(gtx, th, window, horizontalScrollbar, verticalScrollbar, testButton, modalStack, &scrollGesture, pointerTag, gestureTag, &horizontalPos, &verticalPos, &keyUpPressed, &keyDownPressed, &keyLeftPressed, &keyRightPressed, &physicsState)
+				mainUI(gtx, th, window, horizontalScrollbar, verticalScrollbar, testButton, modalStack, globalMenu, &scrollGesture, pointerTag, gestureTag, &horizontalPos, &verticalPos, &keyUpPressed, &keyDownPressed, &keyLeftPressed, &keyRightPressed, &physicsState)
 
 				// Note: Scrollbar positions are now controlled by physics system
 				// No need to update from scrollbar changes since physics sets them directly
@@ -288,7 +303,7 @@ func loop(w *app.Window, th *fromage.Theme, window *fromage.Window) func() {
 
 func mainUI(gtx layout.Context, th *fromage.Theme, window *fromage.Window,
 	horizontalScrollbar, verticalScrollbar *fromage.Scrollbar,
-	testButton *fromage.ButtonLayout, modalStack *fromage.ModalStack,
+	testButton *fromage.ButtonLayout, modalStack *fromage.ModalStack, globalMenu *fromage.GlobalMenu,
 	scrollGesture *gesture.Scroll, pointerTag, gestureTag interface{},
 	horizontalPos, verticalPos *float32, keyUpPressed, keyDownPressed, keyLeftPressed, keyRightPressed *bool,
 	physicsState *struct {
@@ -697,6 +712,14 @@ func mainUI(gtx layout.Context, th *fromage.Theme, window *fromage.Window,
 		modalStack.Push(modalContent, func() {
 			modalStack.Pop()
 		})
+	}
+
+	// Handle global menu events
+	globalMenu.HandleEvents(gtx)
+
+	// Layout the global menu
+	if globalMenu.IsVisible() {
+		globalMenu.Layout(gtx)
 	}
 
 	// Layout the modal stack on top of everything
