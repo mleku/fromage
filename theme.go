@@ -3,9 +3,9 @@ package fromage
 import (
 	"context"
 
-	"gioui.org/text"
-	"gioui.org/unit"
-	"gioui.org/widget"
+	"gio.mleku.dev/text"
+	"gio.mleku.dev/unit"
+	"gio.mleku.dev/widget"
 )
 
 type Theme struct {

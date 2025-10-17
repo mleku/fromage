@@ -4,10 +4,10 @@ import (
 	"image"
 	"testing"
 
-	"gioui.org/layout"
-	"gioui.org/op"
-	"gioui.org/text"
-	"gioui.org/unit"
+	"gio.mleku.dev/layout"
+	"gio.mleku.dev/op"
+	"gio.mleku.dev/text"
+	"gio.mleku.dev/unit"
 )
 
 func TestInset(t *testing.T) {

@@ -3,8 +3,8 @@ package fromage
 import (
 	"image/color"
 
-	"gioui.org/layout"
-	"gioui.org/unit"
+	"gio.mleku.dev/layout"
+	"gio.mleku.dev/unit"
 )
 
 // Card provides a card widget with background color, padding, and rounded corners

@@ -5,8 +5,8 @@ import (
 	"image/color"
 	"math"
 
-	"gioui.org/layout"
-	"gioui.org/unit"
+	"gio.mleku.dev/layout"
+	"gio.mleku.dev/unit"
 )
 
 // ColorSelector provides tone, hue, and saturation sliders

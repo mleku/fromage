@@ -5,8 +5,8 @@ import (
 	"image/color"
 	"image/draw"
 
-	"gioui.org/op/paint"
-	"gioui.org/unit"
+	"gio.mleku.dev/op/paint"
+	"gio.mleku.dev/unit"
 	"github.com/gio-eui/ivgconv"
 	"golang.org/x/exp/shiny/iconvg"
 )

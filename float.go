@@ -3,13 +3,13 @@ package fromage
 import (
 	"image"
 
-	"gioui.org/gesture"
-	"gioui.org/io/pointer"
-	"gioui.org/layout"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
-	"gioui.org/unit"
-	"gioui.org/widget"
+	"gio.mleku.dev/gesture"
+	"gio.mleku.dev/io/pointer"
+	"gio.mleku.dev/layout"
+	"gio.mleku.dev/op/clip"
+	"gio.mleku.dev/op/paint"
+	"gio.mleku.dev/unit"
+	"gio.mleku.dev/widget"
 )
 
 // Float is a slider widget for selecting float values

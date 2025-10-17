@@ -4,12 +4,12 @@ import (
 	"image"
 	"time"
 
-	"gioui.org/io/pointer"
-	"gioui.org/layout"
-	"gioui.org/op"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
-	"gioui.org/unit"
+	"gio.mleku.dev/io/pointer"
+	"gio.mleku.dev/layout"
+	"gio.mleku.dev/op"
+	"gio.mleku.dev/op/clip"
+	"gio.mleku.dev/op/paint"
+	"gio.mleku.dev/unit"
 )
 
 // Scrollbar is a scrollbar widget for indicating scroll position and allowing scrolling

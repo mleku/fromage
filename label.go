@@ -3,12 +3,12 @@ package fromage
 import (
 	"image/color"
 
-	"gioui.org/font"
-	"gioui.org/op"
-	"gioui.org/op/paint"
-	"gioui.org/text"
-	"gioui.org/unit"
-	"gioui.org/widget"
+	"gio.mleku.dev/font"
+	"gio.mleku.dev/op"
+	"gio.mleku.dev/op/paint"
+	"gio.mleku.dev/text"
+	"gio.mleku.dev/unit"
+	"gio.mleku.dev/widget"
 )
 
 // Label is a text widget with fluent method chaining

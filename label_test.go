@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"gioui.org/text"
-	"gioui.org/unit"
+	"gio.mleku.dev/text"
+	"gio.mleku.dev/unit"
 )
 
 func TestLabel(t *testing.T) {

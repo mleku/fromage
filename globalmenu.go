@@ -5,13 +5,13 @@ import (
 	"image/color"
 	"time"
 
-	"gioui.org/io/pointer"
-	"gioui.org/layout"
-	"gioui.org/op"
-	"gioui.org/op/paint"
-	"gioui.org/text"
-	"gioui.org/unit"
-	"gioui.org/widget"
+	"gio.mleku.dev/io/pointer"
+	"gio.mleku.dev/layout"
+	"gio.mleku.dev/op"
+	"gio.mleku.dev/op/paint"
+	"gio.mleku.dev/text"
+	"gio.mleku.dev/unit"
+	"gio.mleku.dev/widget"
 )
 
 // GlobalMenu represents a right-click context menu system

@@ -1,7 +1,7 @@
 package fromage
 
 import (
-	"gioui.org/app"
+	"gio.mleku.dev/app"
 )
 
 type Window struct {

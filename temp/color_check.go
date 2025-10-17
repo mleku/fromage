@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"gioui.org/font/gofont"
-	"gioui.org/text"
-	"gioui.org/unit"
+	"gio.mleku.dev/font/gofont"
+	"gio.mleku.dev/text"
+	"gio.mleku.dev/unit"
 	"github.com/mleku/fromage"
 )
 
@@ -25,4 +25,3 @@ func main() {
 	fmt.Printf("Primary: %+v\n", th.Colors.Primary())
 	fmt.Printf("Secondary: %+v\n", th.Colors.Secondary())
 }
-

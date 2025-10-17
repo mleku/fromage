@@ -5,12 +5,12 @@ import (
 	"image/color"
 	"time"
 
-	"gioui.org/io/semantic"
-	"gioui.org/op"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
-	"gioui.org/unit"
-	"gioui.org/widget"
+	"gio.mleku.dev/io/semantic"
+	"gio.mleku.dev/op"
+	"gio.mleku.dev/op/clip"
+	"gio.mleku.dev/op/paint"
+	"gio.mleku.dev/unit"
+	"gio.mleku.dev/widget"
 )
 
 // BoolHook is a function type for handling boolean value changes

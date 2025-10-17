@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"image"
 
-	"gioui.org/app"
-	"gioui.org/font/gofont"
-	"gioui.org/layout"
-	"gioui.org/op"
-	"gioui.org/text"
-	"gioui.org/unit"
+	"gio.mleku.dev/app"
+	"gio.mleku.dev/font/gofont"
+	"gio.mleku.dev/layout"
+	"gio.mleku.dev/op"
+	"gio.mleku.dev/text"
+	"gio.mleku.dev/unit"
 	"github.com/mleku/fromage"
 	"lol.mleku.dev/chk"
 )

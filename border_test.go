@@ -6,9 +6,9 @@ import (
 	"image/color"
 	"testing"
 
-	"gioui.org/font/gofont"
-	"gioui.org/text"
-	"gioui.org/unit"
+	"gio.mleku.dev/font/gofont"
+	"gio.mleku.dev/text"
+	"gio.mleku.dev/unit"
 )
 
 func TestBorder(t *testing.T) {

@@ -1,8 +1,8 @@
 package fromage
 
 import (
-	"gioui.org/layout"
-	"gioui.org/unit"
+	"gio.mleku.dev/layout"
+	"gio.mleku.dev/unit"
 )
 
 // Inset creates a padded empty space around a widget

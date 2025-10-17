@@ -3,7 +3,7 @@ package fromage
 import (
 	"time"
 
-	"gioui.org/unit"
+	"gio.mleku.dev/unit"
 )
 
 // DrawerWithControls combines a drawer with radio button controls to change its position

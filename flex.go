@@ -1,7 +1,7 @@
 package fromage
 
 import (
-	"gioui.org/layout"
+	"gio.mleku.dev/layout"
 )
 
 // Flex provides a fluent API for creating flex layouts

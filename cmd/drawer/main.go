@@ -6,12 +6,12 @@ import (
 	"os"
 	"time"
 
-	"gioui.org/app"
-	"gioui.org/font/gofont"
-	"gioui.org/op"
-	"gioui.org/op/paint"
-	"gioui.org/text"
-	"gioui.org/unit"
+	"gio.mleku.dev/app"
+	"gio.mleku.dev/font/gofont"
+	"gio.mleku.dev/op"
+	"gio.mleku.dev/op/paint"
+	"gio.mleku.dev/text"
+	"gio.mleku.dev/unit"
 
 	"github.com/mleku/fromage"
 )

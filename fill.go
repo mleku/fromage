@@ -4,9 +4,9 @@ import (
 	"image"
 	"image/color"
 
-	"gioui.org/layout"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
+	"gio.mleku.dev/layout"
+	"gio.mleku.dev/op/clip"
+	"gio.mleku.dev/op/paint"
 )
 
 // Fill provides a widget that fills the background with a specified color and corner radius

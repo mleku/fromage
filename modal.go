@@ -4,10 +4,10 @@ import (
 	"image/color"
 	"time"
 
-	"gioui.org/layout"
-	"gioui.org/op"
-	"gioui.org/op/paint"
-	"gioui.org/widget"
+	"gio.mleku.dev/layout"
+	"gio.mleku.dev/op"
+	"gio.mleku.dev/op/paint"
+	"gio.mleku.dev/widget"
 )
 
 // ModalStack manages a stack of modal dialogs

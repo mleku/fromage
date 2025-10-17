@@ -5,8 +5,8 @@ import (
 	"image/color"
 	"testing"
 
-	"gioui.org/text"
-	"gioui.org/unit"
+	"gio.mleku.dev/text"
+	"gio.mleku.dev/unit"
 )
 
 func TestColorSelector(t *testing.T) {

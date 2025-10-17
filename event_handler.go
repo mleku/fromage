@@ -5,11 +5,11 @@ import (
 
 	"lol.mleku.dev/log"
 
-	"gioui.org/gesture"
-	"gioui.org/io/event"
-	"gioui.org/io/pointer"
-	"gioui.org/layout"
-	"gioui.org/op"
+	"gio.mleku.dev/gesture"
+	"gio.mleku.dev/io/event"
+	"gio.mleku.dev/io/pointer"
+	"gio.mleku.dev/layout"
+	"gio.mleku.dev/op"
 )
 
 // EventHandler provides consistent event processing for pointer and scroll events
@@ -76,43 +76,50 @@ func (eh *EventHandler) SetOnRelease(callback func(pointer.Event)) *EventHandler
 func (eh *EventHandler) AddToOps(ops *op.Ops) {
 	// Register for pointer events using the proper Gio event system
 	event.Op(ops, eh)
-
-	// Add scroll gesture to capture scroll events
-	eh.scroll.Add(ops)
 }
 
 // ProcessEvents processes all events from the given context
 func (eh *EventHandler) ProcessEvents(gtx layout.Context) {
-	// Process scroll events first
+	// Process scroll events first and re-emit them
 	eh.processScrollEvents(gtx)
 
 	// Process pointer events from the source
 	eh.processPointerEvents(gtx)
 }
 
-// processScrollEvents processes scroll events using gesture.Scroll
+// processScrollEvents processes scroll events from pointer events
 func (eh *EventHandler) processScrollEvents(gtx layout.Context) {
-	// Process scroll events using gesture.Scroll
-	scrollDistance := eh.scroll.Update(gtx.Metric, gtx.Source, gtx.Now, gesture.Vertical,
-		pointer.ScrollRange{Min: -1000, Max: 1000},
-		pointer.ScrollRange{Min: -1000, Max: 1000})
-
-	if scrollDistance != 0 {
-		var direction string
-		if scrollDistance > 0 {
-			direction = "Down"
-		} else {
-			direction = "Up"
+	// Process scroll events from pointer events
+	for {
+		event, ok := gtx.Event(pointer.Filter{
+			Kinds: pointer.Scroll,
+		})
+		if !ok {
+			break
 		}
+		if pointerEvent, ok := event.(pointer.Event); ok {
+			if pointerEvent.Kind == pointer.Scroll {
+				log.I.F("Found SCROLL event: Y=%.1f", pointerEvent.Scroll.Y)
+				eh.logEvent(fmt.Sprintf("SCROLL: Direction=%s, Y=%.1f",
+					getScrollDirection(pointerEvent.Scroll.Y), pointerEvent.Scroll.Y))
 
-		log.I.F("Found SCROLL gesture: %s, distance=%d", direction, scrollDistance)
-		eh.logEvent(fmt.Sprintf("SCROLL: Direction=%s, Distance=%d", direction, scrollDistance))
-
-		// Call scroll callback if set
-		if eh.onScroll != nil {
-			eh.onScroll(float32(scrollDistance))
+				// Call scroll callback if set
+				if eh.onScroll != nil {
+					eh.onScroll(pointerEvent.Scroll.Y)
+				}
+			}
 		}
 	}
+}
+
+// getScrollDirection returns a string describing the scroll direction
+func getScrollDirection(scrollY float32) string {
+	if scrollY > 0 {
+		return "Down"
+	} else if scrollY < 0 {
+		return "Up"
+	}
+	return "None"
 }
 
 // processPointerEvents processes pointer events from the source
@@ -124,7 +131,7 @@ func (eh *EventHandler) processPointerEvents(gtx layout.Context) {
 	for {
 		ev, ok := gtx.Source.Event(pointer.Filter{
 			Target: eh,
-			Kinds:  pointer.Press | pointer.Release | pointer.Drag | pointer.Move | pointer.Enter | pointer.Leave | pointer.Cancel,
+			Kinds:  pointer.Press | pointer.Release | pointer.Drag | pointer.Move | pointer.Enter | pointer.Leave | pointer.Cancel | pointer.Scroll,
 		})
 		if !ok {
 			// Try to get any event without filter to see what's available
@@ -178,6 +185,17 @@ func (eh *EventHandler) processPointerEvents(gtx layout.Context) {
 					eh.onHover(e.Kind == pointer.Enter)
 				}
 				buttonInfo = e.Buttons.String()
+			case pointer.Scroll:
+				// Handle scroll events
+				log.I.F("Found SCROLL event: Y=%.1f, X=%.1f, Position=(%.1f,%.1f)", e.Scroll.Y, e.Scroll.X, e.Position.X, e.Position.Y)
+				eh.logEvent(fmt.Sprintf("SCROLL: Direction=%s, Y=%.1f, X=%.1f",
+					getScrollDirection(e.Scroll.Y), e.Scroll.Y, e.Scroll.X))
+
+				// Call scroll callback if set
+				if eh.onScroll != nil {
+					eh.onScroll(e.Scroll.Y)
+				}
+				buttonInfo = fmt.Sprintf("Scroll: Y=%.1f, X=%.1f", e.Scroll.Y, e.Scroll.X)
 			default:
 				buttonInfo = e.Buttons.String()
 			}

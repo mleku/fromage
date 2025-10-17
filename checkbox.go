@@ -4,12 +4,12 @@ import (
 	"image"
 	"image/color"
 
-	"gioui.org/font"
-	"gioui.org/io/semantic"
-	"gioui.org/layout"
-	"gioui.org/op"
-	"gioui.org/unit"
-	"gioui.org/widget"
+	"gio.mleku.dev/font"
+	"gio.mleku.dev/io/semantic"
+	"gio.mleku.dev/layout"
+	"gio.mleku.dev/op"
+	"gio.mleku.dev/unit"
+	"gio.mleku.dev/widget"
 )
 
 // CheckboxHook is a function type for handling checkbox value changes

@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"gioui.org/app"
-	"gioui.org/op"
-	"gioui.org/text"
-	"gioui.org/unit"
+	"gio.mleku.dev/app"
+	"gio.mleku.dev/op"
+	"gio.mleku.dev/text"
+	"gio.mleku.dev/unit"
 )
 
 func TestModalStack(t *testing.T) {

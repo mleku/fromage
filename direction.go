@@ -1,6 +1,6 @@
 package fromage
 
-import "gioui.org/layout"
+import "gio.mleku.dev/layout"
 
 type Direction struct {
 	D layout.Direction
