@@ -5,11 +5,9 @@ import (
 	"image/color"
 	"time"
 
-	"gioui.org/io/event"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/unit"
@@ -19,8 +17,7 @@ import (
 // GlobalMenu represents a right-click context menu system
 type GlobalMenu struct {
 	theme        *Theme
-	pointerTag   interface{}
-	scrimClick   *widget.Clickable
+	eventHandler *EventHandler
 	items        []*MenuItem
 	nextItemID   int
 	animating    bool
@@ -52,16 +49,43 @@ type MenuItem struct {
 
 // NewGlobalMenu creates a new global menu instance
 func (t *Theme) NewGlobalMenu() *GlobalMenu {
-	return &GlobalMenu{
+	gm := &GlobalMenu{
 		theme:        t,
-		pointerTag:   &struct{}{}, // Unique tag for pointer events
-		scrimClick:   &widget.Clickable{},
 		items:        make([]*MenuItem, 0),
 		nextItemID:   1,
 		animating:    false,
 		visible:      false,
 		scrimVisible: false,
 	}
+
+	// Create event handler with callbacks
+	gm.eventHandler = NewEventHandler(func(event string) {
+		// Log menu events if needed
+	}).SetOnPress(func(e pointer.Event) {
+		if e.Buttons == pointer.ButtonSecondary {
+			// Right-click detected
+			clickPos := image.Pt(int(e.Position.X), int(e.Position.Y))
+			gm.Show(clickPos, image.Pt(800, 600)) // Default viewport size
+		} else if e.Buttons == pointer.ButtonPrimary && gm.scrimVisible {
+			// Left-click on scrim to close menu
+			clickPos := image.Pt(int(e.Position.X), int(e.Position.Y))
+			menuWidth := 250
+			menuHeight := len(gm.items) * 40
+			menuRect := image.Rect(
+				gm.position.X,
+				gm.position.Y,
+				gm.position.X+menuWidth,
+				gm.position.Y+menuHeight,
+			)
+
+			if !clickPos.In(menuRect) {
+				// Click outside menu - hide it
+				gm.Hide()
+			}
+		}
+	})
+
+	return gm
 }
 
 // AddItem adds a new item to the menu
@@ -157,6 +181,10 @@ func (gm *GlobalMenu) Layout(gtx layout.Context) {
 		paint.Fill(gtx.Ops, scrimColor)
 	}
 
+	// Register event handler for this menu
+	gm.eventHandler.AddToOps(gtx.Ops)
+	gm.eventHandler.ProcessEvents(gtx)
+
 	// Position the menu
 	offset := op.Offset(gm.position).Push(gtx.Ops)
 	defer offset.Pop()
@@ -231,78 +259,6 @@ func (gm *GlobalMenu) Layout(gtx layout.Context) {
 
 	// Update animation state
 	gm.animating = alpha < 1.0
-}
-
-// HandleEvents processes pointer events for the global menu
-func (gm *GlobalMenu) HandleEvents(gtx layout.Context) {
-	// Handle right-click detection for menu creation (only when menu is not visible)
-	if !gm.IsVisible() {
-		// Register for pointer events over the entire window area only for right-click detection
-		r := image.Rectangle{Max: gtx.Constraints.Max}
-		area := clip.Rect(r).Push(gtx.Ops)
-		event.Op(gtx.Ops, gm.pointerTag)
-		area.Pop()
-
-		for {
-			ev, ok := gtx.Event(pointer.Filter{
-				Target: gm.pointerTag,
-				Kinds:  pointer.Press,
-			})
-			if !ok {
-				break
-			}
-			if e, ok := ev.(pointer.Event); ok {
-				if e.Kind == pointer.Press && e.Buttons == pointer.ButtonSecondary {
-					clickPos := image.Pt(int(e.Position.X), int(e.Position.Y))
-					gm.Show(clickPos, gtx.Constraints.Max)
-					break
-				}
-			}
-		}
-	}
-
-	// Handle scrim clicks when menu is visible
-	if gm.scrimVisible {
-		// Only register scrim area for left-click events to close menu
-		scrimArea := clip.Rect(image.Rectangle{Max: gtx.Constraints.Max}).Push(gtx.Ops)
-		event.Op(gtx.Ops, gm.scrimClick)
-
-		for {
-			ev, ok := gtx.Event(pointer.Filter{
-				Target: gm.scrimClick,
-				Kinds:  pointer.Press,
-			})
-			if !ok {
-				break
-			}
-			if e, ok := ev.(pointer.Event); ok {
-				if e.Kind == pointer.Press && e.Buttons == pointer.ButtonPrimary {
-					// Check if click is outside the menu bounds
-					menuWidth := 250 // Match the increased width
-					menuHeight := len(gm.items) * 40
-					menuRect := image.Rect(
-						gm.position.X,
-						gm.position.Y,
-						gm.position.X+menuWidth,
-						gm.position.Y+menuHeight,
-					)
-
-					clickPos := image.Pt(int(e.Position.X), int(e.Position.Y))
-					if !clickPos.In(menuRect) {
-						// Click outside menu - hide it
-						gm.Hide()
-						break
-					}
-				}
-			}
-		}
-		scrimArea.Pop()
-	}
-
-	// Request animation frame if animating
-	if gm.animating {
-		gtx.Execute(op.InvalidateCmd{})
-	}
 }
 
 // calculateSmartPosition calculates where to position the menu so it faces toward the center

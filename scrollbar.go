@@ -4,14 +4,12 @@ import (
 	"image"
 	"time"
 
-	"gioui.org/gesture"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
-	"gioui.org/widget"
 )
 
 // Scrollbar is a scrollbar widget for indicating scroll position and allowing scrolling
@@ -25,11 +23,10 @@ type Scrollbar struct {
 	// Width is the width of the scrollbar (defaults to 1 text height)
 	width unit.Dp
 
-	clickable  *widget.Clickable
-	changed    bool
-	changeHook func(float32)
-	dragging   bool
-	drag       gesture.Drag
+	eventHandler *EventHandler
+	changed      bool
+	changeHook   func(float32)
+	dragging     bool
 
 	// Animation for smooth track clicks
 	animating     bool
@@ -41,6 +38,12 @@ type Scrollbar struct {
 	trackPressed    bool
 	trackPressStart time.Time
 	trackPressSide  int // -1 for left/up, 1 for right/down
+
+	// Track dimensions for event handling
+	trackLength float32
+	thumbSize   int
+	// Store gtx context for event handling
+	gtx layout.Context
 }
 
 // Orientation represents the scrollbar orientation
@@ -54,13 +57,26 @@ const (
 // NewScrollbar creates a new scrollbar
 func (t *Theme) NewScrollbar(orientation Orientation) *Scrollbar {
 	sb := &Scrollbar{
-		clickable:   t.Pool.GetClickable(),
 		changeHook:  func(float32) {},
 		orientation: orientation,
 		width:       t.TextSize, // Default to 1 text height wide
 		viewport:    0.5,        // Default to showing 50% of content
 		position:    0.0,        // Default to start position
+		dragging:    false,
 	}
+
+	// Create event handler with callbacks
+	sb.eventHandler = NewEventHandler(func(event string) {
+		// Log scrollbar events if needed
+	}).SetOnPress(func(e pointer.Event) {
+		sb.handlePress(e)
+	}).SetOnDrag(func(e pointer.Event) {
+		sb.handleDrag(e)
+	}).SetOnRelease(func(e pointer.Event) {
+		sb.handleRelease(e)
+	}).SetOnScroll(func(distance float32) {
+		sb.handleScroll(distance)
+	})
 
 	return sb
 }
@@ -109,6 +125,93 @@ func (s *Scrollbar) Position() float32 {
 	return s.position
 }
 
+// handlePress handles press events
+func (s *Scrollbar) handlePress(e pointer.Event) {
+	// Check if click is on thumb or track
+	var clickPos float32
+	if s.orientation == Horizontal {
+		clickPos = e.Position.X / s.trackLength
+	} else {
+		clickPos = e.Position.Y / s.trackLength
+	}
+
+	// Calculate thumb position and size in normalized coordinates
+	thumbRatio := float32(s.thumbSize) / s.trackLength
+	thumbStart := s.position * (1 - thumbRatio)
+	thumbEnd := thumbStart + thumbRatio
+
+	if clickPos >= thumbStart && clickPos <= thumbEnd {
+		// Click is on thumb - start dragging
+		s.dragging = true
+	} else {
+		// Click is on track - start tracking for long press
+		s.trackPressed = true
+		s.trackPressStart = time.Now()
+		if clickPos < thumbStart {
+			s.trackPressSide = -1 // Left/up side
+		} else {
+			s.trackPressSide = 1 // Right/down side
+		}
+		// Also do immediate scroll
+		s.handleTrackClick(clickPos, thumbStart, thumbEnd, int(s.trackLength), s.gtx)
+	}
+}
+
+// handleDrag handles drag events
+func (s *Scrollbar) handleDrag(e pointer.Event) {
+	if s.dragging {
+		// Update position based on drag position
+		var newPos float32
+		if s.orientation == Horizontal {
+			newPos = e.Position.X / s.trackLength
+		} else {
+			newPos = e.Position.Y / s.trackLength
+		}
+
+		// Adjust for thumb size
+		thumbRatio := float32(s.thumbSize) / s.trackLength
+		if newPos < thumbRatio/2 {
+			newPos = 0
+		} else if newPos > 1-thumbRatio/2 {
+			newPos = 1
+		} else {
+			newPos = (newPos - thumbRatio/2) / (1 - thumbRatio)
+		}
+
+		if newPos < 0 {
+			newPos = 0
+		} else if newPos > 1 {
+			newPos = 1
+		}
+		s.position = newPos
+		s.changed = true
+		s.changeHook(s.position)
+	}
+}
+
+// handleRelease handles release events
+func (s *Scrollbar) handleRelease(e pointer.Event) {
+	s.dragging = false
+	s.trackPressed = false
+}
+
+// handleScroll handles scroll events
+func (s *Scrollbar) handleScroll(distance float32) {
+	// Adjust position based on scroll distance
+	scrollAmount := distance / 100.0 // Scale down the scroll amount
+	newPos := s.position + scrollAmount
+
+	if newPos < 0 {
+		newPos = 0
+	} else if newPos > 1 {
+		newPos = 1
+	}
+
+	s.position = newPos
+	s.changed = true
+	s.changeHook(s.position)
+}
+
 // Layout renders the scrollbar
 func (s *Scrollbar) Layout(gtx layout.Context, th *Theme) layout.Dimensions {
 	// Use full available space for track
@@ -151,77 +254,14 @@ func (s *Scrollbar) Layout(gtx layout.Context, th *Theme) layout.Dimensions {
 		thumbSize = gtx.Dp(unit.Dp(20))
 	}
 
-	// Handle drag gestures on track
-	for {
-		ev, ok := s.drag.Update(gtx.Metric, gtx.Source, gesture.Axis(s.orientation))
-		if !ok {
-			break
-		}
+	// Store track dimensions and context for event handlers
+	s.trackLength = trackLength
+	s.thumbSize = thumbSize
+	s.gtx = gtx
 
-		switch ev.Kind {
-		case pointer.Press:
-			// Check if click is on thumb or track
-			var clickPos float32
-			if s.orientation == Horizontal {
-				clickPos = ev.Position.X / trackLength
-			} else {
-				clickPos = ev.Position.Y / trackLength
-			}
-
-			// Calculate thumb position and size in normalized coordinates
-			thumbRatio := float32(thumbSize) / trackLength
-			thumbStart := s.position * (1 - thumbRatio)
-			thumbEnd := thumbStart + thumbRatio
-
-			if clickPos >= thumbStart && clickPos <= thumbEnd {
-				// Click is on thumb - start dragging
-				s.dragging = true
-			} else {
-				// Click is on track - start tracking for long press
-				s.trackPressed = true
-				s.trackPressStart = gtx.Now
-				if clickPos < thumbStart {
-					s.trackPressSide = -1 // Left/up side
-				} else {
-					s.trackPressSide = 1 // Right/down side
-				}
-				// Also do immediate scroll
-				s.handleTrackClick(clickPos, thumbStart, thumbEnd, trackSpace, gtx)
-			}
-		case pointer.Drag:
-			if s.dragging {
-				// Update position based on drag position
-				var newPos float32
-				if s.orientation == Horizontal {
-					newPos = ev.Position.X / trackLength
-				} else {
-					newPos = ev.Position.Y / trackLength
-				}
-
-				// Adjust for thumb size
-				thumbRatio := float32(thumbSize) / trackLength
-				if newPos < thumbRatio/2 {
-					newPos = 0
-				} else if newPos > 1-thumbRatio/2 {
-					newPos = 1
-				} else {
-					newPos = (newPos - thumbRatio/2) / (1 - thumbRatio)
-				}
-
-				if newPos < 0 {
-					newPos = 0
-				} else if newPos > 1 {
-					newPos = 1
-				}
-				s.position = newPos
-				s.changed = true
-				s.changeHook(s.position)
-			}
-		case pointer.Release:
-			s.dragging = false
-			s.trackPressed = false
-		}
-	}
+	// Register event handler for this scrollbar area
+	s.eventHandler.AddToOps(gtx.Ops)
+	s.eventHandler.ProcessEvents(gtx)
 
 	// Check for long press on track (1 second)
 	if s.trackPressed {
@@ -266,10 +306,7 @@ func (s *Scrollbar) layoutTrack(gtx layout.Context, th *Theme, trackSpace, thumb
 		Max: image.Pt(gtx.Constraints.Min.X, gtx.Constraints.Min.Y),
 	}
 
-	// Register drag gesture area for the full background area (same size as buttons)
-	area := clip.Rect(backgroundRect).Push(gtx.Ops)
-	s.drag.Add(gtx.Ops)
-	area.Pop()
+	// Event handling is now done by the EventHandler in the main Layout method
 
 	// Draw track FIRST to ensure it's visible
 	var trackRect image.Rectangle

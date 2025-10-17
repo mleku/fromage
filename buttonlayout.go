@@ -7,6 +7,7 @@ import (
 
 	"lol.mleku.dev/log"
 
+	"gioui.org/io/pointer"
 	"gioui.org/io/semantic"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -25,8 +26,8 @@ type ButtonLayout struct {
 	background color.NRGBA
 	// Corner radius
 	cornerRadius unit.Dp
-	// Clickable widget for handling interactions
-	clickable *widget.Clickable
+	// Event handler for handling interactions
+	eventHandler *EventHandler
 	// Embedded widget
 	widget W
 	// Corner flags
@@ -37,18 +38,42 @@ type ButtonLayout struct {
 	onClick func()
 	// Disable inking effect
 	disableInking bool
+	// Internal state for button behavior
+	pressed bool
+	hovered bool
+	clicked bool
 }
 
 // NewButtonLayout creates a new button layout
 func (t *Theme) NewButtonLayout() *ButtonLayout {
-	return &ButtonLayout{
+	bl := &ButtonLayout{
 		theme:        t,
 		background:   t.Colors.Primary(),
 		cornerRadius: unit.Dp(float32(t.TextSize) * 0.25), // Scale corner radius based on text size
-		clickable:    t.Pool.GetClickable(),               // Use pooled clickable
 		corners:      CornerAll,
 		disabled:     false,
+		pressed:      false,
+		hovered:      false,
+		clicked:      false,
 	}
+
+	// Create event handler with callbacks
+	bl.eventHandler = NewEventHandler(func(event string) {
+		log.I.F("[ButtonLayout] %s", event)
+	}).SetOnClick(func(e pointer.Event) {
+		bl.clicked = true
+		if bl.onClick != nil {
+			bl.onClick()
+		}
+	}).SetOnPress(func(e pointer.Event) {
+		bl.pressed = true
+	}).SetOnRelease(func(e pointer.Event) {
+		bl.pressed = false
+	}).SetOnHover(func(hovered bool) {
+		bl.hovered = hovered
+	})
+
+	return bl
 }
 
 // Background sets the background color
@@ -103,7 +128,8 @@ func (b *ButtonLayout) DisableInking(disable bool) *ButtonLayout {
 
 // Clicked returns true if the button was clicked
 func (b *ButtonLayout) Clicked(g C) bool {
-	clicked := b.clickable.Clicked(g)
+	clicked := b.clicked
+	b.clicked = false // Reset after checking
 	if clicked {
 		log.I.F("[TRACE] Button clicked at position: %v", g.Now)
 	}
@@ -112,12 +138,12 @@ func (b *ButtonLayout) Clicked(g C) bool {
 
 // Hovered returns true if the button is being hovered
 func (b *ButtonLayout) Hovered() bool {
-	return b.clickable.Hovered()
+	return b.hovered
 }
 
 // Pressed returns true if the button is being pressed
 func (b *ButtonLayout) Pressed() bool {
-	return b.clickable.Pressed()
+	return b.pressed
 }
 
 // Layout renders the button layout
@@ -156,26 +182,27 @@ func (b *ButtonLayout) Layout(g C) D {
 		widgetDims = D{Size: g.Constraints.Min}
 	}
 
-	// Create the button layout using the clickable's Layout method
-	return b.clickable.Layout(g, func(g C) D {
-		// Add semantic information for accessibility
-		semantic.Button.Add(g.Ops)
+	// Add semantic information for accessibility
+	semantic.Button.Add(g.Ops)
 
-		// Draw background - use exact constraints if provided
-		finalSize := widgetDims.Size
-		if g.Constraints.Min.X > 0 && g.Constraints.Min.Y > 0 {
-			finalSize = g.Constraints.Min
-		}
-		bgDims := b.drawBackground(g, finalSize)
+	// Register event handler for this button area
+	b.eventHandler.AddToOps(g.Ops)
+	b.eventHandler.ProcessEvents(g)
 
-		// Draw content on top - use layout.Center to properly queue the widget
-		if b.widget != nil {
-			g.Constraints.Min = finalSize
-			layout.Center.Layout(g, b.widget)
-		}
+	// Draw background - use exact constraints if provided
+	finalSize := widgetDims.Size
+	if g.Constraints.Min.X > 0 && g.Constraints.Min.Y > 0 {
+		finalSize = g.Constraints.Min
+	}
+	bgDims := b.drawBackground(g, finalSize)
 
-		return bgDims
-	})
+	// Draw content on top - use layout.Center to properly queue the widget
+	if b.widget != nil {
+		g.Constraints.Min = finalSize
+		layout.Center.Layout(g, b.widget)
+	}
+
+	return bgDims
 }
 
 // drawBackground draws the button background with rounded corners and animations
@@ -220,11 +247,8 @@ func (b *ButtonLayout) drawBackground(g C, size image.Point) D {
 	paint.Fill(g.Ops, bgColor)
 
 	// Draw ink animations for press history (unless disabled)
-	if !b.disableInking {
-		for _, press := range b.clickable.History() {
-			b.drawInk(g, press, size)
-		}
-	}
+	// Note: Ink animations are disabled when using EventHandler instead of widget.Clickable
+	// This could be re-implemented by tracking press events in the EventHandler
 
 	return D{Size: size}
 }

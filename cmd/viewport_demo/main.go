@@ -31,6 +31,27 @@ type (
 	W = fromage.W
 )
 
+// WindowState holds current window dimensions and mouse position
+type WindowState struct {
+	Width         int     // Window width in Dp
+	Height        int     // Window height in Dp
+	MouseX        float32 // Mouse X position in pixels
+	MouseY        float32 // Mouse Y position in pixels
+	MouseInWindow bool    // Whether mouse is currently in the window
+}
+
+// ViewportState holds viewport-specific coordinate information
+type ViewportState struct {
+	ViewportX      float32 // Mouse X position relative to viewport (0-1)
+	ViewportY      float32 // Mouse Y position relative to viewport (0-1)
+	ViewportWidth  int     // Viewport width in Dp
+	ViewportHeight int     // Viewport height in Dp
+	ContentX       float32 // Mouse X position in content coordinates
+	ContentY       float32 // Mouse Y position in content coordinates
+	ScrollX        float32 // Current horizontal scroll position (0-1)
+	ScrollY        float32 // Current vertical scroll position (0-1)
+}
+
 // Physics configuration - tune these values to adjust motion behavior
 var (
 	// Mass affects how much impulse is needed to achieve the same velocity
@@ -84,7 +105,7 @@ func RedCornerOutline(gtx layout.Context, th *fromage.Theme, contentSize int) la
 
 // clipViewport creates a clipped viewport that shows only the portion of content
 // corresponding to the scrollbar positions
-func clipViewport(gtx layout.Context, th *fromage.Theme, contentSize int, horizontalPos, verticalPos float32, viewportWidth, viewportHeight int, testButton *fromage.ButtonLayout, modalStack *fromage.ModalStack) layout.Dimensions {
+func clipViewport(gtx layout.Context, th *fromage.Theme, contentSize int, horizontalPos, verticalPos float32, viewportWidth, viewportHeight int, testButton *fromage.ButtonLayout, modalStack *fromage.ModalStack, windowState *WindowState, viewportState *ViewportState) layout.Dimensions {
 	// Calculate the offset based on scroll position
 	// horizontalPos and verticalPos are 0-1, so we multiply by the scrollable distance
 	scrollableWidth := contentSize - viewportWidth
@@ -110,6 +131,15 @@ func clipViewport(gtx layout.Context, th *fromage.Theme, contentSize int, horizo
 
 	// Draw the red corner outline widget at the translated position
 	RedCornerOutline(gtx, th, contentSize)
+
+	// Example: Use viewport state for overlay widgets
+	// This shows how overlay widgets can access viewport-relative coordinates
+	if viewportState.ViewportX > 0 && viewportState.ViewportY > 0 {
+		fmt.Printf("🎯 OVERLAY WIDGET: Mouse at viewport (%.3f, %.3f), content (%.1f, %.1f), scroll (%.3f, %.3f)\n",
+			viewportState.ViewportX, viewportState.ViewportY,
+			viewportState.ContentX, viewportState.ContentY,
+			viewportState.ScrollX, viewportState.ScrollY)
+	}
 
 	// Draw the test button in the center of the canvas
 	centerX := contentSize / 2
@@ -235,6 +265,10 @@ func loop(w *app.Window, th *fromage.Theme, window *fromage.Window) func() {
 		upAcceleration, downAcceleration, leftAcceleration, rightAcceleration int
 	}
 
+	// Window state tracking
+	var windowState WindowState
+	var viewportState ViewportState
+
 	return func() {
 		var ops op.Ops
 		for {
@@ -245,6 +279,30 @@ func loop(w *app.Window, th *fromage.Theme, window *fromage.Window) func() {
 			case app.FrameEvent:
 				gtx := app.NewContext(&ops, e)
 				th.Pool.Reset() // Reset pool at the beginning of each frame
+
+				// Update window state with current dimensions and mouse position
+				windowState.Width = gtx.Dp(unit.Dp(gtx.Constraints.Max.X))
+				windowState.Height = gtx.Dp(unit.Dp(gtx.Constraints.Max.Y))
+
+				// Register for pointer events to capture mouse position
+				pointerArea := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
+				event.Op(gtx.Ops, &windowState) // Use windowState as the event tag
+
+				// Process pointer events to update mouse position
+				for {
+					event, ok := gtx.Event(pointer.Filter{
+						Kinds: pointer.Move | pointer.Enter | pointer.Leave,
+					})
+					if !ok {
+						break
+					}
+					if pointerEvent, ok := event.(pointer.Event); ok {
+						windowState.MouseX = pointerEvent.Position.X
+						windowState.MouseY = pointerEvent.Position.Y
+						windowState.MouseInWindow = pointerEvent.Kind != pointer.Leave
+					}
+				}
+				pointerArea.Pop()
 
 				// Register a global key listener for arrow keys
 				area := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
@@ -360,7 +418,7 @@ func loop(w *app.Window, th *fromage.Theme, window *fromage.Window) func() {
 				}
 				area.Pop()
 
-				mainUI(gtx, th, window, horizontalScrollbar, verticalScrollbar, testButton, modalStack, &scrollGesture, pointerTag, gestureTag, &horizontalPos, &verticalPos, &keyUpPressed, &keyDownPressed, &keyLeftPressed, &keyRightPressed, &pageUpPressed, &pageDownPressed, &homePressed, &endPressed, &physicsState, &keyStates)
+				mainUI(gtx, th, window, horizontalScrollbar, verticalScrollbar, testButton, modalStack, &scrollGesture, pointerTag, gestureTag, &horizontalPos, &verticalPos, &keyUpPressed, &keyDownPressed, &keyLeftPressed, &keyRightPressed, &pageUpPressed, &pageDownPressed, &homePressed, &endPressed, &physicsState, &keyStates, &windowState, &viewportState)
 
 				// Note: Scrollbar positions are now controlled by physics system
 				// No need to update from scrollbar changes since physics sets them directly
@@ -392,10 +450,23 @@ func mainUI(gtx layout.Context, th *fromage.Theme, window *fromage.Window,
 		upPressed, downPressed, leftPressed, rightPressed                     bool
 		upStartTime, downStartTime, leftStartTime, rightStartTime             int64
 		upAcceleration, downAcceleration, leftAcceleration, rightAcceleration int
-	}) {
+	},
+	windowState *WindowState,
+	viewportState *ViewportState) {
 
 	// Fill background with theme background color
 	th.FillBackground(nil).Layout(gtx)
+
+	// Log window state for debugging
+	fmt.Printf("🪟 WINDOW STATE: Size=(%d, %d) Dp, Mouse=(%.1f, %.1f) px, InWindow=%t\n",
+		windowState.Width, windowState.Height, windowState.MouseX, windowState.MouseY, windowState.MouseInWindow)
+
+	// Log viewport state for debugging
+	fmt.Printf("📺 VIEWPORT STATE: Size=(%d, %d) Dp, Viewport=(%.3f, %.3f), Content=(%.1f, %.1f), Scroll=(%.3f, %.3f)\n",
+		viewportState.ViewportWidth, viewportState.ViewportHeight,
+		viewportState.ViewportX, viewportState.ViewportY,
+		viewportState.ContentX, viewportState.ContentY,
+		viewportState.ScrollX, viewportState.ScrollY)
 
 	// Calculate content size to be an even multiple of 6 text height squares
 	squareSize := gtx.Dp(th.TextSize * 6) // 6 text heights per square
@@ -417,6 +488,22 @@ func mainUI(gtx layout.Context, th *fromage.Theme, window *fromage.Window,
 	// Get the actual content area size (viewport area minus horizontal scrollbar space)
 	contentAreaWidth := viewportWidth
 	contentAreaHeight := viewportHeight - scrollbarWidth // Subtract horizontal scrollbar height
+
+	// Update viewport state with current information
+	viewportState.ViewportWidth = gtx.Dp(unit.Dp(contentAreaWidth))
+	viewportState.ViewportHeight = gtx.Dp(unit.Dp(contentAreaHeight))
+	viewportState.ScrollX = *horizontalPos
+	viewportState.ScrollY = *verticalPos
+
+	// Calculate mouse position relative to viewport (0-1)
+	if contentAreaWidth > 0 && contentAreaHeight > 0 {
+		viewportState.ViewportX = windowState.MouseX / float32(contentAreaWidth)
+		viewportState.ViewportY = windowState.MouseY / float32(contentAreaHeight)
+
+		// Calculate mouse position in content coordinates
+		viewportState.ContentX = windowState.MouseX + (*horizontalPos * float32(contentSize-contentAreaWidth))
+		viewportState.ContentY = windowState.MouseY + (*verticalPos * float32(contentSize-contentAreaHeight))
+	}
 
 	// Calculate viewport proportions (how much of the content is visible)
 	horizontalViewport := float32(contentAreaWidth) / float32(contentSize)
@@ -462,7 +549,7 @@ func mainUI(gtx layout.Context, th *fromage.Theme, window *fromage.Window,
 							scrollGesture.Add(g.Ops)
 
 							// Clipped viewport for the red corner outline widget
-							dims := clipViewport(g, th, contentSize, *horizontalPos, *verticalPos, contentAreaWidth, contentAreaHeight, testButton, modalStack)
+							dims := clipViewport(g, th, contentSize, *horizontalPos, *verticalPos, contentAreaWidth, contentAreaHeight, testButton, modalStack, windowState, viewportState)
 
 							clipArea.Pop()
 							return dims

@@ -128,8 +128,7 @@ func mainUI(gtx layout.Context, th *fromage.Theme, w *fromage.Window) {
 		}).
 		Layout(gtx)
 
-	// Handle global menu events
-	appState.globalMenu.HandleEvents(gtx)
+	// Global menu now handles events internally through EventHandler
 
 	// Layout the global menu
 	if appState.globalMenu.IsVisible() {
